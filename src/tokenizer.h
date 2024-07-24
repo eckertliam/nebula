@@ -13,11 +13,12 @@ class Tokenizer {
 private:
     /// indentation level stack
     std::vector<uint8_t> indents = {0};
-    uint8_t line;
+    size_t line;
     std::string source;
-    uint8_t start;
-    uint8_t current;
+    size_t start;
+    size_t current;
     std::vector<Token> tokens;
+    bool finished = false;
 
     char peek();
     char peek_next();
@@ -31,6 +32,7 @@ private:
     void symbol();
     void newline();
     void indentation();
+    void docstring();
     void next_token();
     bool is_at_end();
 public:

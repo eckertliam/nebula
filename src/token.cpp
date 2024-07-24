@@ -6,6 +6,9 @@
 
 std::ostream& operator<<(std::ostream& os, const Token& token) {
     switch (token.kind) {
+        case TokenKind::DOCSTRING:
+            os << "DOCSTRING: " << token.value << " on line " << static_cast<int>(token.line);
+            break;
         case TokenKind::ERROR:
             os << "ERROR: " << token.value << " on line " << static_cast<int>(token.line);
             break;
@@ -201,8 +204,8 @@ std::ostream& operator<<(std::ostream& os, const Token& token) {
         case TokenKind::CLASS:
             os << "CLASS: " << static_cast<int>(token.line);
             break;
-        case TokenKind::IMPLEMENTS:
-            os << "IMPLEMENTS: " << static_cast<int>(token.line);
+        case TokenKind::IMPL:
+            os << "IMPL: " << static_cast<int>(token.line);
             break;
         case TokenKind::ENUM:
             os << "ENUM: " << static_cast<int>(token.line);

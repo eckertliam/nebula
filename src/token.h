@@ -11,6 +11,7 @@
 
 enum class TokenKind {
     ERROR,
+    DOCSTRING,
     INDENT,
     DEDENT,
     NEWLINE,
@@ -78,7 +79,7 @@ enum class TokenKind {
     FALSE,
     TRAIT,
     CLASS,
-    IMPLEMENTS,
+    IMPL,
     ENUM,
     TYPE,
 };

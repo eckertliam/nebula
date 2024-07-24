@@ -23,6 +23,37 @@ class Expression : public AstNode {
 class Statement : public AstNode {
 };
 
+// BEGIN TYPES=========================================================================================================
+
+/// type unit, a base class for all types
+class TypeUnit : public AstNode {};
+
+/// a base type such as int, float, bool, etc.
+class BaseType : public TypeUnit {
+public:
+    std::string name;
+};
+
+/// a type with generic parameters
+class GenericType : public TypeUnit {
+public:
+    std::string name;
+    std::vector<std::unique_ptr<TypeUnit>> parameters;
+};
+
+/// a type variable such as fn test<T>(t: T): T
+class TypeVariable : public TypeUnit {
+public:
+    std::string name;
+};
+
+/// a function type
+class FunctionType : public TypeUnit {
+public:
+    std::vector<std::unique_ptr<TypeUnit>> parameters;
+    std::unique_ptr<TypeUnit> return_type;
+};
+
 // BEGIN STATEMENTS====================================================================================================
 
 /// a block of code created by an indent to dedent
@@ -114,6 +145,47 @@ public:
     std::vector<std::unique_ptr<FunctionParameter>> parameters;
     std::string return_type;
     std::unique_ptr<Block> body;
+};
+
+/// a trait field unit, a base class for trait methods and fields
+class TraitUnit : public Statement {};
+
+/// a trait variable field
+class TraitField : public TraitUnit {
+public:
+    std::string name;
+    std::string type;
+    // optional value either set by the trait or by the implementing class
+    std::unique_ptr<Expression> value = nullptr;
+};
+
+/// a trait method field
+class TraitMethod : public TraitUnit {
+public:
+    std::string name;
+    std::vector<std::unique_ptr<FunctionParameter>> parameters;
+    std::string return_type;
+    // optional body either set by the trait or by the implementing class
+    std::unique_ptr<Block> body = nullptr;
+};
+
+/// a trait definition
+class TraitDef : public Statement {
+public:
+    std::string name;
+    std::vector<std::unique_ptr<TraitUnit>> units;
+};
+
+/// a class field unit, a base class for class methods and fields
+class ClassUnit : public Statement {};
+
+/// a class variable field
+class ClassField : public ClassUnit {
+public:
+    std::string name;
+    std::string type;
+    // optional value either set by the class or by a constructor
+    std::unique_ptr<Expression> value = nullptr;
 };
 
 // END STATEMENTS======================================================================================================

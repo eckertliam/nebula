@@ -5,7 +5,8 @@
 
 
 #include <unordered_map>
-
+#include <iostream>
+#include "token.h"
 #include "tokenizer.h"
 
 /// peek - returns the current character in the source code
@@ -97,7 +98,7 @@ void Tokenizer::string() {
         {"false", TokenKind::FALSE},
         {"trait", TokenKind::TRAIT},
         {"class", TokenKind::CLASS},
-        {"implements", TokenKind::IMPLEMENTS},
+        {"impl", TokenKind::IMPL},
         {"type", TokenKind::TYPE},
         {"enum", TokenKind::ENUM},
 };
@@ -128,9 +129,14 @@ void Tokenizer::newline() {
 /// indentation - consumes spaces and handles the indentation level
 void Tokenizer::indentation() {
     uint8_t spaces = 0;
-    while (peek() == ' ' && !is_at_end()) {
+    while (peek() == ' ' &&  peek() != '\n' && !is_at_end()) {
         spaces++;
         advance();
+    }
+    if (is_at_end()) return;
+    if (peek() == '\n') {
+        newline();
+        return;
     }
     if (spaces > indents.back()) {
         indents.push_back(spaces);
@@ -142,6 +148,22 @@ void Tokenizer::indentation() {
         }
     }
 
+}
+
+void Tokenizer::docstring() {
+    while (peek() != '\n' && !is_at_end()) {
+        advance();
+    }
+    // unterminated string
+    if (is_at_end()) {
+        error_token("Unterminated docstring on line " + std::to_string(line));
+        return;
+    }
+    // remove the three slashes from the beginning of the docstring
+    std::string lexeme = source.substr(start + 3, current - start - 3);
+    tokens.emplace_back(TokenKind::DOCSTRING, lexeme, line);
+    // handle the newline
+    newline();
 }
 
 /// next_token - consumes the next token in the source code
@@ -180,6 +202,17 @@ void Tokenizer::next_token() {
             if (peek() == '=') {
                 advance();
                 simple_token(TokenKind::SLASH_EQUAL);
+            } else if (peek() == '/') {
+                // consume the slash
+                advance();
+                if (peek() == '/') {
+                    // consume the third slash
+                    advance();
+                    docstring();
+                    return;
+                }
+                while (peek() != '\n' && !is_at_end()) advance();
+                if (!is_at_end()) next_token();
             } else {
                 simple_token(TokenKind::SLASH);
             }
@@ -306,25 +339,33 @@ void Tokenizer::next_token() {
         case '"':
             string();
             break;
+        case '\0':
+            simple_token(TokenKind::ENDMARKER);
+            finished = true;
+            break;
         default:
             if (std::isdigit(c)) {
                 number();
             } else if (std::isalpha(c) || c == '_') {
                 symbol();
             } else {
-                error_token("Unexpected character on line " + std::to_string(line));
+                // get lexeme of unexpected token
+                std::string lexeme = get_lexeme();
+                error_token("Unexpected lexeme " + lexeme);
+                finished = true;
             }
     }
 }
 
 /// is_at_end - returns true if the tokenizer has reached the end of the source code
 bool Tokenizer::is_at_end() {
-    return current >= source.size();
+    finished = current >= source.size();
+    return finished;
 }
 
 /// tokenize - returns a vector of tokens from the source code
 std::vector<Token> Tokenizer::tokenize() {
-    while (!is_at_end()) {
+    while (!finished) {
         next_token();
     }
     return tokens;
