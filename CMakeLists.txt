@@ -5,7 +5,6 @@ set(CMAKE_CXX_STANDARD 20)
 
 add_executable(nebula src/main.cpp
         src/token.h
+        src/token.cpp
         src/tokenizer.h
-        src/tokenizer.cpp
-        src/tokenizer.cpp
-        src/token.cpp)
+        src/tokenizer.cpp)

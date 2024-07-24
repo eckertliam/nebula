@@ -7,6 +7,7 @@
 
 #include <string>
 #include <utility>
+#include <iostream>
 
 enum class TokenKind {
     ERROR,
@@ -31,6 +32,15 @@ enum class TokenKind {
     EQUAL,
     GREATER,
     DOT,
+    LPAREN,
+    RPAREN,
+    LBRACE,
+    RBRACE,
+    LBRACKET,
+    RBRACKET,
+    COMMA,
+    COLON,
+    SEMICOLON,
     // double-character tokens
     PLUS_EQUAL,
     MINUS_EQUAL,
@@ -45,6 +55,7 @@ enum class TokenKind {
     LESS_EQUAL,
     GREATER_EQUAL,
     DOT_DOT,
+    COLON_COLON,
     MINUS_GREATER, // ->
     EQUAL_GREATER, // =>
     // keywords
@@ -68,10 +79,24 @@ class Token {
 public:
     TokenKind kind;
     std::string value;
-    int line;
-    Token(TokenKind kind, std::string value, int line) : kind(kind), value(std::move(value)), line(line) {}
-    Token(TokenKind kind, int line) : kind(kind), line(line) {}
+    uint8_t line;
+    Token(TokenKind kind, std::string value, uint8_t line) : kind(kind), value(std::move(value)), line(line) {}
+    Token(TokenKind kind, uint8_t line) : kind(kind), line(line) {}
+    friend std::ostream& operator<<(std::ostream& os, const Token& token);
 };
 
+
+
+class IndentToken : public Token {
+public:
+    uint8_t level;
+    explicit IndentToken(uint8_t level, uint8_t line) : Token(TokenKind::INDENT, line), level(level) {}
+};
+
+class DedentToken : public Token {
+public:
+    uint8_t level;
+    explicit DedentToken(uint8_t level, uint8_t line) : Token(TokenKind::DEDENT, line), level(level) {}
+};
 
 #endif //NEBULA_TOKEN_H
