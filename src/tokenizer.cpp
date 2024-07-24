@@ -89,7 +89,17 @@ void Tokenizer::string() {
         {"return", TokenKind::RETURN},
         {"lambda", TokenKind::LAMBDA},
         {"for", TokenKind::FOR},
-        {"in", TokenKind::IN}
+        {"in", TokenKind::IN},
+        {"and", TokenKind::AND},
+        {"or", TokenKind::OR},
+        {"not", TokenKind::NOT},
+        {"true", TokenKind::TRUE},
+        {"false", TokenKind::FALSE},
+        {"trait", TokenKind::TRAIT},
+        {"class", TokenKind::CLASS},
+        {"implements", TokenKind::IMPLEMENTS},
+        {"type", TokenKind::TYPE},
+        {"enum", TokenKind::ENUM},
 };
 
 /// symbol - consumes a symbol and creates a symbol token checking for keywords

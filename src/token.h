@@ -71,6 +71,16 @@ enum class TokenKind {
     LAMBDA,
     FOR,
     IN,
+    AND,
+    OR,
+    NOT,
+    TRUE,
+    FALSE,
+    TRAIT,
+    CLASS,
+    IMPLEMENTS,
+    ENUM,
+    TYPE,
 };
 
 class Token {

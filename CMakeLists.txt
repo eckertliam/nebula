@@ -7,4 +7,6 @@ add_executable(nebula src/main.cpp
         src/token.h
         src/token.cpp
         src/tokenizer.h
-        src/tokenizer.cpp)
+        src/tokenizer.cpp
+        src/ast.cpp
+        src/ast.h)

@@ -180,6 +180,36 @@ std::ostream& operator<<(std::ostream& os, const Token& token) {
         case TokenKind::IN:
             os << "IN: " << static_cast<int>(token.line);
             break;
+        case TokenKind::AND:
+            os << "AND: " << static_cast<int>(token.line);
+            break;
+        case TokenKind::OR:
+            os << "OR: " << static_cast<int>(token.line);
+            break;
+        case TokenKind::NOT:
+            os << "NOT: " << static_cast<int>(token.line);
+            break;
+        case TokenKind::TRUE:
+            os << "TRUE: " << static_cast<int>(token.line);
+            break;
+        case TokenKind::FALSE:
+            os << "FALSE: " << static_cast<int>(token.line);
+            break;
+        case TokenKind::TRAIT:
+            os << "TRAIT: " << static_cast<int>(token.line);
+            break;
+        case TokenKind::CLASS:
+            os << "CLASS: " << static_cast<int>(token.line);
+            break;
+        case TokenKind::IMPLEMENTS:
+            os << "IMPLEMENTS: " << static_cast<int>(token.line);
+            break;
+        case TokenKind::ENUM:
+            os << "ENUM: " << static_cast<int>(token.line);
+            break;
+        case TokenKind::TYPE:
+            os << "TYPE: " << static_cast<int>(token.line);
+            break;
     }
     return os;
 }
