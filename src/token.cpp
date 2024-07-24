@@ -5,214 +5,227 @@
 #include "token.h"
 
 std::ostream& operator<<(std::ostream& os, const Token& token) {
+    std::string line = std::to_string(token.line);
+    std::string kind;
+    std::string value;
     switch (token.kind) {
-        case TokenKind::DOCSTRING:
-            os << "DOCSTRING: " << token.value << " on line " << static_cast<int>(token.line);
-            break;
         case TokenKind::ERROR:
-            os << "ERROR: " << token.value << " on line " << static_cast<int>(token.line);
+            kind = "ERROR";
+            value = token.value;
+            break;
+        case TokenKind::DOCSTRING:
+            kind = "DOCSTRING";
+            value = token.value;
             break;
         case TokenKind::INDENT:
-            os << "INDENT: " << static_cast<int>(token.line);
+            kind = "INDENT";
             break;
         case TokenKind::DEDENT:
-            os << "DEDENT: " << static_cast<int>(token.line);
+            kind = "DEDENT";
             break;
         case TokenKind::NEWLINE:
-            os << "NEWLINE: " << static_cast<int>(token.line);
+            kind = "NEWLINE";
             break;
         case TokenKind::ENDMARKER:
-            os << "ENDMARKER: " << static_cast<int>(token.line);
-            break;
-        case TokenKind::SYMBOL:
-            os << "SYMBOL: " << token.value << " on line " << static_cast<int>(token.line);
+            kind = "ENDMARKER";
             break;
         case TokenKind::NUMBER:
-            os << "NUMBER: " << token.value << " on line " << static_cast<int>(token.line);
+            kind = "NUMBER";
+            value = token.value;
             break;
         case TokenKind::STRING:
-            os << "STRING: " << token.value << " on line " << static_cast<int>(token.line);
+            kind = "STRING";
+            value = token.value;
+            break;
+        case TokenKind::SYMBOL:
+            kind = "SYMBOL";
+            value = token.value;
             break;
         case TokenKind::PLUS:
-            os << "PLUS: " << static_cast<int>(token.line);
+            kind = "PLUS";
             break;
         case TokenKind::MINUS:
-            os << "MINUS: " << static_cast<int>(token.line);
+            kind = "MINUS";
             break;
         case TokenKind::STAR:
-            os << "STAR: " << static_cast<int>(token.line);
+            kind = "STAR";
             break;
         case TokenKind::SLASH:
-            os << "SLASH: " << static_cast<int>(token.line);
+            kind = "SLASH";
             break;
         case TokenKind::PERCENT:
-            os << "PERCENT: " << static_cast<int>(token.line);
+            kind = "PERCENT";
             break;
         case TokenKind::AMPERSAND:
-            os << "AMPERSAND: " << static_cast<int>(token.line);
+            kind = "AMPERSAND";
             break;
         case TokenKind::PIPE:
-            os << "PIPE: " << static_cast<int>(token.line);
+            kind = "PIPE";
             break;
         case TokenKind::CARET:
-            os << "CARET: " << static_cast<int>(token.line);
+            kind = "CARET";
             break;
         case TokenKind::BANG:
-            os << "BANG: " << static_cast<int>(token.line);
+            kind = "BANG";
             break;
         case TokenKind::LESS:
-            os << "LESS: " << static_cast<int>(token.line);
+            kind = "LESS";
             break;
         case TokenKind::EQUAL:
-            os << "EQUAL: " << static_cast<int>(token.line);
+            kind = "EQUAL";
             break;
         case TokenKind::GREATER:
-            os << "GREATER: " << static_cast<int>(token.line);
+            kind = "GREATER";
             break;
         case TokenKind::DOT:
-            os << "DOT: " << static_cast<int>(token.line);
+            kind = "DOT";
             break;
         case TokenKind::LPAREN:
-            os << "LPAREN: " << static_cast<int>(token.line);
+            kind = "LPAREN";
             break;
         case TokenKind::RPAREN:
-            os << "RPAREN: " << static_cast<int>(token.line);
+            kind = "RPAREN";
             break;
         case TokenKind::LBRACE:
-            os << "LBRACE: " << static_cast<int>(token.line);
+            kind = "LBRACE";
             break;
         case TokenKind::RBRACE:
-            os << "RBRACE: " << static_cast<int>(token.line);
+            kind = "RBRACE";
             break;
         case TokenKind::LBRACKET:
-            os << "LBRACKET: " << static_cast<int>(token.line);
+            kind = "LBRACKET";
             break;
         case TokenKind::RBRACKET:
-            os << "RBRACKET: " << static_cast<int>(token.line);
+            kind = "RBRACKET";
             break;
         case TokenKind::COMMA:
-            os << "COMMA: " << static_cast<int>(token.line);
+            kind = "COMMA";
             break;
         case TokenKind::COLON:
-            os << "COLON: " << static_cast<int>(token.line);
+            kind = "COLON";
             break;
         case TokenKind::SEMICOLON:
-            os << "SEMICOLON: " << static_cast<int>(token.line);
+            kind = "SEMICOLON";
             break;
         case TokenKind::PLUS_EQUAL:
-            os << "PLUS_EQUAL: " << static_cast<int>(token.line);
+            kind = "PLUS_EQUAL";
             break;
         case TokenKind::MINUS_EQUAL:
-            os << "MINUS_EQUAL: " << static_cast<int>(token.line);
+            kind = "MINUS_EQUAL";
             break;
         case TokenKind::STAR_EQUAL:
-            os << "STAR_EQUAL: " << static_cast<int>(token.line);
+            kind = "STAR_EQUAL";
             break;
         case TokenKind::SLASH_EQUAL:
-            os << "SLASH_EQUAL: " << static_cast<int>(token.line);
+            kind = "SLASH_EQUAL";
             break;
         case TokenKind::PERCENT_EQUAL:
-            os << "PERCENT_EQUAL: " << static_cast<int>(token.line);
+            kind = "PERCENT_EQUAL";
             break;
         case TokenKind::AMPERSAND_EQUAL:
-            os << "AMPERSAND_EQUAL: " << static_cast<int>(token.line);
+            kind = "AMPERSAND_EQUAL";
             break;
         case TokenKind::PIPE_EQUAL:
-            os << "PIPE_EQUAL: " << static_cast<int>(token.line);
+            kind = "PIPE_EQUAL";
             break;
         case TokenKind::CARET_EQUAL:
-            os << "CARET_EQUAL: " << static_cast<int>(token.line);
+            kind = "CARET_EQUAL";
             break;
         case TokenKind::EQUAL_EQUAL:
-            os << "EQUAL_EQUAL: " << static_cast<int>(token.line);
+            kind = "EQUAL_EQUAL";
             break;
         case TokenKind::BANG_EQUAL:
-            os << "BANG_EQUAL: " << static_cast<int>(token.line);
+            kind = "BANG_EQUAL";
             break;
         case TokenKind::LESS_EQUAL:
-            os << "LESS_EQUAL: " << static_cast<int>(token.line);
+            kind = "LESS_EQUAL";
             break;
         case TokenKind::GREATER_EQUAL:
-            os << "GREATER_EQUAL: " << static_cast<int>(token.line);
+            kind = "GREATER_EQUAL";
             break;
         case TokenKind::DOT_DOT:
-            os << "DOT_DOT: " << static_cast<int>(token.line);
+            kind = "DOT_DOT";
             break;
         case TokenKind::COLON_COLON:
-            os << "COLON_COLON: " << static_cast<int>(token.line);
+            kind = "COLON_COLON";
             break;
         case TokenKind::MINUS_GREATER:
-            os << "MINUS_GREATER: " << static_cast<int>(token.line);
+            kind = "MINUS_GREATER";
             break;
         case TokenKind::EQUAL_GREATER:
-            os << "EQUAL_GREATER: " << static_cast<int>(token.line);
+            kind = "EQUAL_GREATER";
             break;
         case TokenKind::IF:
-            os << "IF: " << static_cast<int>(token.line);
+            kind = "IF";
             break;
         case TokenKind::ELSE:
-            os << "ELSE: " << static_cast<int>(token.line);
+            kind = "ELSE";
             break;
         case TokenKind::ELIF:
-            os << "ELIF: " << static_cast<int>(token.line);
+            kind = "ELIF";
             break;
         case TokenKind::MATCH:
-            os << "MATCH: " << static_cast<int>(token.line);
+            kind = "MATCH";
             break;
         case TokenKind::WHILE:
-            os << "WHILE: " << static_cast<int>(token.line);
+            kind = "WHILE";
             break;
         case TokenKind::BREAK:
-            os << "BREAK: " << static_cast<int>(token.line);
+            kind = "BREAK";
             break;
         case TokenKind::MUT:
-            os << "MUT: " << static_cast<int>(token.line);
+            kind = "MUT";
             break;
         case TokenKind::FN:
-            os << "FN: " << static_cast<int>(token.line);
+            kind = "FN";
             break;
         case TokenKind::RETURN:
-            os << "RETURN: " << static_cast<int>(token.line);
+            kind = "RETURN";
             break;
         case TokenKind::LAMBDA:
-            os << "LAMBDA: " << static_cast<int>(token.line);
+            kind = "LAMBDA";
             break;
         case TokenKind::FOR:
-            os << "FOR: " << static_cast<int>(token.line);
+            kind = "FOR";
             break;
         case TokenKind::IN:
-            os << "IN: " << static_cast<int>(token.line);
+            kind = "IN";
             break;
         case TokenKind::AND:
-            os << "AND: " << static_cast<int>(token.line);
+            kind = "AND";
             break;
         case TokenKind::OR:
-            os << "OR: " << static_cast<int>(token.line);
+            kind = "OR";
             break;
         case TokenKind::NOT:
-            os << "NOT: " << static_cast<int>(token.line);
+            kind = "NOT";
             break;
         case TokenKind::TRUE:
-            os << "TRUE: " << static_cast<int>(token.line);
+            kind = "TRUE";
             break;
         case TokenKind::FALSE:
-            os << "FALSE: " << static_cast<int>(token.line);
+            kind = "FALSE";
             break;
         case TokenKind::TRAIT:
-            os << "TRAIT: " << static_cast<int>(token.line);
+            kind = "TRAIT";
             break;
         case TokenKind::CLASS:
-            os << "CLASS: " << static_cast<int>(token.line);
+            kind = "CLASS";
             break;
         case TokenKind::IMPL:
-            os << "IMPL: " << static_cast<int>(token.line);
+            kind = "IMPL";
             break;
         case TokenKind::ENUM:
-            os << "ENUM: " << static_cast<int>(token.line);
+            kind = "ENUM";
             break;
         case TokenKind::TYPE:
-            os << "TYPE: " << static_cast<int>(token.line);
+            kind = "TYPE";
             break;
+    }
+    if (value.empty()) {
+        os << kind << " line " << line;
+    } else {
+        os << kind << " " << value << " line " << line;
     }
     return os;
 }
