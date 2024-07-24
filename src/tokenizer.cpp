@@ -82,8 +82,6 @@ void Tokenizer::string() {
         {"else", TokenKind::ELSE},
         {"elif", TokenKind::ELIF},
         {"match", TokenKind::MATCH},
-        {"case", TokenKind::CASE},
-        {"default", TokenKind::DEFAULT},
         {"while", TokenKind::WHILE},
         {"break", TokenKind::BREAK},
         {"mut", TokenKind::MUT},

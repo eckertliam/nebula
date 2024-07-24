@@ -156,12 +156,6 @@ std::ostream& operator<<(std::ostream& os, const Token& token) {
         case TokenKind::MATCH:
             os << "MATCH: " << static_cast<int>(token.line);
             break;
-        case TokenKind::CASE:
-            os << "CASE: " << static_cast<int>(token.line);
-            break;
-        case TokenKind::DEFAULT:
-            os << "DEFAULT: " << static_cast<int>(token.line);
-            break;
         case TokenKind::WHILE:
             os << "WHILE: " << static_cast<int>(token.line);
             break;

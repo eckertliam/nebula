@@ -63,8 +63,6 @@ enum class TokenKind {
     ELSE,
     ELIF,
     MATCH,
-    CASE,
-    DEFAULT,
     WHILE,
     BREAK,
     MUT,
