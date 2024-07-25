@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
-#include "tokenizer.h"
+#include "frontend/tokenizer.h"
+#include "frontend/parser.h"
 
 
 int main() {
@@ -9,8 +10,6 @@ int main() {
     std::string source((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
     Tokenizer tokenizer(source);
     std::vector<Token> tokens = tokenizer.tokenize();
-    for (const Token& token : tokens) {
-        std::cout << token << std::endl;
-    }
+    Parser parser(tokens);
     return 0;
 }

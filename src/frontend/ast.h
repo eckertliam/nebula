@@ -61,6 +61,8 @@ public:
 class Block : public Statement {
 public:
     std::vector<std::unique_ptr<Statement>> statements;
+
+    void push(const Statement& statement);
 };
 
 /// a function parameter
@@ -87,6 +89,9 @@ public:
     // optional type. If not specified, type is inferred. if cannot be inferred, error
     std::unique_ptr<TypeUnit> type = nullptr;
     std::unique_ptr<Expression> value;
+
+    VarDecl(bool is_mutable, std::string name, std::unique_ptr<TypeUnit> type, std::unique_ptr<Expression> value) : is_mutable(is_mutable), name(std::move(name)), type(std::move(type)), value(std::move(value)) {}
+    VarDecl(bool is_mutable, std::string name, std::unique_ptr<Expression> value) : is_mutable(is_mutable), name(std::move(name)), value(std::move(value)) {}
 };
 
 /// Var mutation
@@ -249,6 +254,19 @@ public:
     std::unique_ptr<TypeUnit> type;
 };
 
+/// an import statement
+class Import : public Statement {
+public:
+    std::string module;
+    std::vector<std::string> imports;
+};
+
+/// an expression statement
+class ExprStmt : public Statement {
+public:
+    std::unique_ptr<Expression> expression;
+};
+
 // END STATEMENTS======================================================================================================
 
 // BEGIN EXPRESSIONS===================================================================================================
@@ -348,6 +366,30 @@ class Range : public Expression {
 public:
     std::unique_ptr<Expression> start;
     std::unique_ptr<Expression> end;
+};
+
+/// object module access expression object::constructor() or object::field or object::method()
+class ObjectAccess : public Expression {
+public:
+    std::string object;
+    std::string field;
+    std::vector<std::unique_ptr<Expression>> arguments;
+};
+
+
+/// field access expression
+class FieldAccess : public Expression {
+public:
+    std::unique_ptr<Expression> object;
+    std::string field;
+};
+
+/// method call expression
+class MethodCall : public Expression {
+public:
+    std::unique_ptr<Expression> object;
+    std::string method;
+    std::vector<std::unique_ptr<Expression>> arguments;
 };
 
 // END EXPRESSIONS=====================================================================================================

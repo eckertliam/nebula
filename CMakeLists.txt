@@ -4,9 +4,11 @@ project(nebula)
 set(CMAKE_CXX_STANDARD 20)
 
 add_executable(nebula src/main.cpp
-        src/token.h
-        src/token.cpp
-        src/tokenizer.h
-        src/tokenizer.cpp
-        src/ast.cpp
-        src/ast.h)
+        src/frontend/token.h
+        src/frontend/token.cpp
+        src/frontend/tokenizer.h
+        src/frontend/tokenizer.cpp
+        src/frontend/ast.cpp
+        src/frontend/ast.h
+        src/frontend/parser.cpp
+        src/frontend/parser.h)

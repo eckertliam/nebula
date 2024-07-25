@@ -82,7 +82,12 @@ enum class TokenKind {
     IMPL,
     ENUM,
     TYPE,
+    IMPORT,
+    FROM,
+    AS,
 };
+
+std::string token_kind_string(TokenKind kind);
 
 class Token {
 public:
