@@ -12,10 +12,9 @@
 /// The base class for all AST nodes
 class AstNode {
 public:
-    uint8_t line;
+    size_t line;
     virtual ~AstNode() = default;
 };
-
 
 class Expression : public AstNode {
 };
@@ -34,17 +33,11 @@ public:
     std::string name;
 };
 
-/// a type with generic parameters
+/// a type with generic parameters such as List<T>, Option<T>, etc.
 class GenericType : public TypeUnit {
 public:
     std::string name;
-    std::vector<std::unique_ptr<TypeUnit>> parameters;
-};
-
-/// a type variable such as fn test<T>(t: T): T
-class TypeVariable : public TypeUnit {
-public:
-    std::string name;
+    std::vector<std::string> type_variables;
 };
 
 /// a function type
@@ -53,6 +46,14 @@ public:
     std::vector<std::unique_ptr<TypeUnit>> parameters;
     std::unique_ptr<TypeUnit> return_type;
 };
+
+/// a tuple type
+class TupleType : public TypeUnit {
+public:
+    std::vector<std::unique_ptr<TypeUnit>> elements;
+};
+
+// END TYPES===========================================================================================================
 
 // BEGIN STATEMENTS====================================================================================================
 
@@ -66,7 +67,7 @@ public:
 class FunctionParameter : public Expression {
 public:
     std::string name;
-    std::string type;
+    std::unique_ptr<TypeUnit> type;
 };
 
 /// a function definition
@@ -74,7 +75,7 @@ class FunctionDef : public Statement {
 public:
     std::string name;
     std::vector<std::unique_ptr<FunctionParameter>> parameters;
-    std::string return_type;
+    std::unique_ptr<TypeUnit> return_type;
     std::unique_ptr<Block> body;
 };
 
@@ -84,10 +85,9 @@ public:
     bool is_mutable;
     std::string name;
     // optional type. If not specified, type is inferred. if cannot be inferred, error
-    std::optional<std::string> type;
+    std::unique_ptr<TypeUnit> type = nullptr;
     std::unique_ptr<Expression> value;
 };
-
 
 /// Var mutation
 class VarMut : public Statement {
@@ -143,7 +143,7 @@ public:
 class Lambda : public Statement {
 public:
     std::vector<std::unique_ptr<FunctionParameter>> parameters;
-    std::string return_type;
+    std::unique_ptr<TypeUnit> return_type;
     std::unique_ptr<Block> body;
 };
 
@@ -154,7 +154,7 @@ class TraitUnit : public Statement {};
 class TraitField : public TraitUnit {
 public:
     std::string name;
-    std::string type;
+    std::unique_ptr<TypeUnit> type;
     // optional value either set by the trait or by the implementing class
     std::unique_ptr<Expression> value = nullptr;
 };
@@ -164,7 +164,7 @@ class TraitMethod : public TraitUnit {
 public:
     std::string name;
     std::vector<std::unique_ptr<FunctionParameter>> parameters;
-    std::string return_type;
+    std::unique_ptr<TypeUnit> return_type;
     // optional body either set by the trait or by the implementing class
     std::unique_ptr<Block> body = nullptr;
 };
@@ -176,16 +176,77 @@ public:
     std::vector<std::unique_ptr<TraitUnit>> units;
 };
 
-/// a class field unit, a base class for class methods and fields
-class ClassUnit : public Statement {};
+/// an enum or class base unit for their fields and methods
+class ObjectUnit : public Statement {};
+
+/// an enum variant
+class EnumVariant : public ObjectUnit {
+public:
+    std::string name;
+    /// optionally allow enums to have parameters
+    std::vector<std::unique_ptr<TypeUnit>> parameters;
+};
+
+/// an enum definition
+class EnumDef : public Statement {
+public:
+    std::string name;
+    std::vector<std::unique_ptr<EnumVariant>> variants;
+};
 
 /// a class variable field
-class ClassField : public ClassUnit {
+class ClassField : public ObjectUnit {
 public:
     std::string name;
     std::string type;
     // optional value either set by the class or by a constructor
     std::unique_ptr<Expression> value = nullptr;
+};
+
+/// a method implementation for a class or enum
+class ImplMethod : public ObjectUnit {
+public:
+    std::string name;
+    std::vector<std::unique_ptr<FunctionParameter>> parameters;
+    std::unique_ptr<TypeUnit> return_type;
+    std::unique_ptr<Block> body;
+};
+
+/// a class constructor
+class Constructor : public ObjectUnit {
+public:
+    std::vector<std::unique_ptr<FunctionParameter>> parameters;
+    std::unique_ptr<Block> body;
+};
+
+/// a class definition containing field type definitions and any defaults for those fields
+class ClassDef : public Statement {
+public:
+    std::string name;
+    std::vector<std::unique_ptr<ClassField>> fields;
+};
+
+/// a base class or enum impl. example: impl class_name
+class Impl : public Statement {
+public:
+    std::string name;
+    std::vector<std::unique_ptr<ImplMethod>> methods;
+};
+
+/// an implementation of a trait for a class. example: impl trait_name for obj_name
+/// additional fields for a class can be added in these impl blocks
+class TraitImpl : public Statement {
+public:
+    std::string trait_name;
+    std::string obj_name;
+    std::vector<std::unique_ptr<ImplMethod>> methods;
+};
+
+/// a type alias
+class TypeAlias : public Statement {
+public:
+    std::string name;
+    std::unique_ptr<TypeUnit> type;
 };
 
 // END STATEMENTS======================================================================================================
