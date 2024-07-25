@@ -94,18 +94,4 @@ public:
     friend std::ostream& operator<<(std::ostream& os, const Token& token);
 };
 
-
-
-class IndentToken : public Token {
-public:
-    uint8_t level;
-    explicit IndentToken(uint8_t level, uint8_t line) : Token(TokenKind::INDENT, line), level(level) {}
-};
-
-class DedentToken : public Token {
-public:
-    uint8_t level;
-    explicit DedentToken(uint8_t level, uint8_t line) : Token(TokenKind::DEDENT, line), level(level) {}
-};
-
 #endif //NEBULA_TOKEN_H

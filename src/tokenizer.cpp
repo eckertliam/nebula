@@ -121,14 +121,14 @@ void Tokenizer::newline() {
     if (is_at_end()) return;
     // consume the newline
     advance();
-    tokens.emplace_back(TokenKind::NEWLINE, "", line);
+    simple_token(TokenKind::NEWLINE);
     line++;
     indentation();
 }
 
 /// indentation - consumes spaces and handles the indentation level
 void Tokenizer::indentation() {
-    uint8_t spaces = 0;
+    size_t spaces = 0;
     while (peek() == ' ' &&  peek() != '\n' && !is_at_end()) {
         spaces++;
         advance();
@@ -326,6 +326,7 @@ void Tokenizer::next_token() {
             break;
         case '\n':
             line++;
+            simple_token(TokenKind::NEWLINE);
             indentation();
             break;
         case ' ':
