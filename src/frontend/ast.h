@@ -6,6 +6,7 @@
 #define NEBULA_AST_H
 
 #include <string>
+#include <utility>
 #include <vector>
 #include <optional>
 
@@ -74,6 +75,8 @@ class FunctionParameter : public Expression {
 public:
     std::string name;
     std::unique_ptr<TypeUnit> type;
+
+    FunctionParameter(std::string name, std::unique_ptr<TypeUnit> type) : name(std::move(name)), type(std::move(type)) {}
 };
 
 /// a function definition
@@ -81,11 +84,17 @@ class FunctionDef : public Statement {
 public:
     std::string name;
     std::vector<std::unique_ptr<FunctionParameter>> parameters;
+    std::vector<std::string> type_variables = {};
     std::unique_ptr<TypeUnit> return_type;
     std::unique_ptr<Block> body;
+
+    /// constructor for a function definition with no type variables
+    FunctionDef(std::string name, std::vector<std::unique_ptr<FunctionParameter>> parameters, std::unique_ptr<TypeUnit> return_type, std::unique_ptr<Block> body) : name(std::move(name)), parameters(std::move(parameters)), return_type(std::move(return_type)), body(std::move(body)) {}
+    /// constructor for a function definition with type variables
+    FunctionDef(std::string name, std::vector<std::unique_ptr<FunctionParameter>> parameters, std::vector<std::string> type_variables, std::unique_ptr<TypeUnit> return_type, std::unique_ptr<Block> body) : name(std::move(name)), parameters(std::move(parameters)), type_variables(std::move(type_variables)), return_type(std::move(return_type)), body(std::move(body)) {}
 };
 
-/// a variable declaration
+/// a variable var_decl
 class VarDecl : public Statement {
 public:
     bool is_mutable;
@@ -98,17 +107,12 @@ public:
     VarDecl(bool is_mutable, std::string name, std::unique_ptr<Expression> value) : is_mutable(is_mutable), name(std::move(name)), value(std::move(value)) {}
 };
 
-/// Var mutation
-class VarMut : public Statement {
-public:
-    std::string name;
-    std::unique_ptr<Expression> value;
-};
-
 /// a return statement
 class Return : public Statement {
 public:
     std::unique_ptr<Expression> value;
+
+    explicit Return(std::unique_ptr<Expression> value) : value(std::move(value)) {}
 };
 
 /// if statement
@@ -269,6 +273,8 @@ public:
 class ExprStmt : public Statement {
 public:
     std::unique_ptr<Expression> expression;
+
+    explicit ExprStmt(std::unique_ptr<Expression> expression) : expression(std::move(expression)) {}
 };
 
 // END STATEMENTS======================================================================================================

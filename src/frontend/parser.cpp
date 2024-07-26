@@ -61,8 +61,19 @@ std::unique_ptr<Statement> Parser::statement() {
     switch (current->kind) {
         case TokenKind::INDENT:
             return block();
+        case TokenKind::FN:
+            return function_declaration();
+        case TokenKind::RETURN:
+            return return_statement();
         case TokenKind::MUT:
-            return declaration();
+            return var_decl();
+        case TokenKind::SYMBOL:
+            if (peek()->kind == TokenKind::EQUAL) {
+                return var_decl();
+            } else {
+                auto expr = expression();
+                return std::make_unique<ExprStmt>(std::move(expr));
+            }
         default:
             throw std::runtime_error("Expected a valid statement instead got " + token_kind_string(current->kind) + " on line " + std::to_string(current->line));
     }
@@ -97,7 +108,7 @@ std::unique_ptr<Block> Parser::block() {
 }
 
 
-std::unique_ptr<VarDecl> Parser::declaration() {
+std::unique_ptr<VarDecl> Parser::var_decl() {
     bool is_mut = false;
     if (current->kind == TokenKind::MUT) {
         is_mut = true;
@@ -117,6 +128,64 @@ std::unique_ptr<VarDecl> Parser::declaration() {
     advance();
     auto value = expression();
     return std::make_unique<VarDecl>(is_mut, name, std::move(ty), std::move(value));
+}
+
+std::unique_ptr<FunctionDef> Parser::function_declaration() {
+    // called when current token is FN
+    advance();
+    expect_or_err(TokenKind::SYMBOL);
+    std::string name = current->value;
+    advance();
+    std::vector<std::string> type_variables = {};
+    if (expect(TokenKind::LESS)) {
+        // this is a generic function
+        advance();
+        while (current->kind != TokenKind::GREATER) {
+            expect_or_err(TokenKind::SYMBOL);
+            type_variables.push_back(current->value);
+            advance();
+            if (current->kind == TokenKind::COMMA) {
+                advance();
+            }
+        }
+        expect_or_err(TokenKind::GREATER);
+        advance();
+    }
+    expect_or_err(TokenKind::LPAREN);
+    advance();
+    std::vector<std::unique_ptr<FunctionParameter>> parameters;
+    while (current->kind != TokenKind::RPAREN) {
+        expect_or_err(TokenKind::SYMBOL);
+        std::string param_name = current->value;
+        advance();
+        expect_or_err(TokenKind::COLON);
+        advance();
+        auto param_ty = type();
+        parameters.push_back(std::make_unique<FunctionParameter>(param_name, std::move(param_ty)));
+        if (current->kind == TokenKind::COMMA) {
+            advance();
+        }
+    }
+    expect_or_err(TokenKind::RPAREN);
+    advance();
+    expect_or_err(TokenKind::COLON);
+    advance();
+    auto return_ty = type();
+    expect_or_err(TokenKind::INDENT);
+    auto body = block();
+    if (type_variables.empty()) {
+        return std::make_unique<FunctionDef>(name, std::move(parameters), std::move(return_ty), std::move(body));
+    } else {
+        return std::make_unique<FunctionDef>(name, std::move(parameters), type_variables, std::move(return_ty), std::move(body));
+
+    }
+}
+
+std::unique_ptr<Return> Parser::return_statement() {
+    // called when current token is RETURN
+    advance();
+    auto value = expression();
+    return std::make_unique<Return>(std::move(value));
 }
 
 std::unique_ptr<NumberLiteral> Parser::number_literal() {
