@@ -31,6 +31,8 @@ class TypeUnit : public AstNode {};
 class BaseType : public TypeUnit {
 public:
     std::string name;
+
+    explicit BaseType(std::string name) : name(std::move(name)) {}
 };
 
 /// a type with generic parameters such as List<T>, Option<T>, etc.
@@ -38,6 +40,8 @@ class GenericType : public TypeUnit {
 public:
     std::string name;
     std::vector<std::string> type_variables;
+
+    GenericType(std::string name, std::vector<std::string> type_variables) : name(std::move(name)), type_variables(std::move(type_variables)) {}
 };
 
 /// a function type
@@ -62,7 +66,7 @@ class Block : public Statement {
 public:
     std::vector<std::unique_ptr<Statement>> statements;
 
-    void push(const Statement& statement);
+    explicit Block(std::vector<std::unique_ptr<Statement>> statements) : statements(std::move(statements)) {}
 };
 
 /// a function parameter
@@ -320,6 +324,8 @@ public:
 class NumberLiteral : public Expression {
 public:
     double value;
+
+    NumberLiteral(const std::string& value) : value(std::stod(value)) {}
 };
 
 /// String literal

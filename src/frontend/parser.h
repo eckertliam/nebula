@@ -24,11 +24,15 @@ private:
     Token* peek();
 
     void parse();
-    Statement statement();
-    Expression expression();
-    TypeUnit type();
-    Block block();
-    VarDecl declaration();
+
+    std::unique_ptr<Statement>statement();
+    std::unique_ptr<Expression> expression();
+    std::unique_ptr<TypeUnit> type();
+
+    std::unique_ptr<Block> block();
+    std::unique_ptr<VarDecl> declaration();
+
+    std::unique_ptr<NumberLiteral> number_literal();
 };
 
 

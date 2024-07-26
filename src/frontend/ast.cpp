@@ -3,8 +3,3 @@
 //
 
 #include "ast.h"
-
-/// Block Statement
-void Block::push(const Statement& statement) {
-    statements.push_back(std::make_unique<Statement>(statement));
-}
