@@ -33,6 +33,7 @@ private:
     std::unique_ptr<VarDecl> var_decl();
     std::unique_ptr<FunctionDef> function_declaration();
     std::unique_ptr<Return> return_statement();
+    std::unique_ptr<If> if_statement();
 
     std::unique_ptr<NumberLiteral> number_literal();
 };

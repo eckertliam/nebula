@@ -93,9 +93,9 @@ class Token {
 public:
     TokenKind kind;
     std::string value;
-    uint8_t line;
+    size_t line;
     Token(TokenKind kind, std::string value, uint8_t line) : kind(kind), value(std::move(value)), line(line) {}
-    Token(TokenKind kind, uint8_t line) : kind(kind), line(line) {}
+    Token(TokenKind kind, size_t line) : kind(kind), line(line) {}
     friend std::ostream& operator<<(std::ostream& os, const Token& token);
 };
 

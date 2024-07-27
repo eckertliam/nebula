@@ -74,6 +74,8 @@ std::unique_ptr<Statement> Parser::statement() {
                 auto expr = expression();
                 return std::make_unique<ExprStmt>(std::move(expr));
             }
+        case TokenKind::IF:
+            return if_statement();
         default:
             throw std::runtime_error("Expected a valid statement instead got " + token_kind_string(current->kind) + " on line " + std::to_string(current->line));
     }
@@ -186,6 +188,27 @@ std::unique_ptr<Return> Parser::return_statement() {
     advance();
     auto value = expression();
     return std::make_unique<Return>(std::move(value));
+}
+
+std::unique_ptr<If> Parser::if_statement() {
+    // called when current token is IF or ELIF
+    advance();
+    auto condition = expression();
+    expect_or_err(TokenKind::COLON);
+    advance();
+    expect_or_err(TokenKind::INDENT);
+    auto body = block();
+    std::unique_ptr<Statement> else_body = nullptr;
+    if (current->kind == TokenKind::ELSE) {
+        advance();
+        expect_or_err(TokenKind::COLON);
+        advance();
+        expect_or_err(TokenKind::INDENT);
+        else_body = block();
+    } else if (current->kind == TokenKind::ELIF) {
+        else_body = if_statement();
+    }
+    return std::make_unique<If>(std::move(condition), std::move(body), std::move(else_body));
 }
 
 std::unique_ptr<NumberLiteral> Parser::number_literal() {

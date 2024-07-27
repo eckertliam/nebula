@@ -12,7 +12,7 @@
 class Tokenizer {
 private:
     /// indentation level stack
-    std::vector<uint8_t> indents = {0};
+    std::vector<size_t> indents = {0};
     size_t line;
     std::string source;
     size_t start;

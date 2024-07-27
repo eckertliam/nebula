@@ -120,7 +120,9 @@ class If : public Statement {
 public:
     std::unique_ptr<Expression> condition;
     std::unique_ptr<Block> then_block;
-    std::unique_ptr<Block> else_block;
+    std::unique_ptr<Statement> else_block = nullptr;
+
+    If(std::unique_ptr<Expression> condition, std::unique_ptr<Block> then_block, std::unique_ptr<Statement> else_block) : condition(std::move(condition)), then_block(std::move(then_block)), else_block(std::move(else_block)) {}
 };
 
 /// match case
