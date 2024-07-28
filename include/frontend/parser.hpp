@@ -2,13 +2,13 @@
 // Created by Liam Eckert on 7/25/24.
 //
 
-#ifndef NEBULA_PARSER_H
-#define NEBULA_PARSER_H
+#ifndef NEBULA_PARSER_HPP
+#define NEBULA_PARSER_HPP
 
 
 #include <vector>
-#include "token.h"
-#include "ast.h"
+#include "token.hpp"
+#include "ast.hpp"
 
 class Parser {
 public:
@@ -39,4 +39,4 @@ private:
 };
 
 
-#endif //NEBULA_PARSER_H
+#endif //NEBULA_PARSER_HPP

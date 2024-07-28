@@ -2,8 +2,8 @@
 // Created by Liam Eckert on 7/24/24.
 //
 
-#ifndef NEBULA_AST_H
-#define NEBULA_AST_H
+#ifndef NEBULA_AST_HPP
+#define NEBULA_AST_HPP
 
 #include <string>
 #include <utility>
@@ -408,4 +408,4 @@ public:
 
 // END EXPRESSIONS=====================================================================================================
 
-#endif //NEBULA_AST_H
+#endif //NEBULA_AST_HPP

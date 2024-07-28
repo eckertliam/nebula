@@ -1,7 +1,7 @@
 #include <iostream>
 #include <fstream>
-#include "frontend/tokenizer.h"
-#include "frontend/parser.h"
+#include "frontend/tokenizer.hpp"
+#include "frontend/parser.hpp"
 
 
 int main() {

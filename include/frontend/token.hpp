@@ -2,8 +2,8 @@
 // Created by Liam Eckert on 7/22/24.
 //
 
-#ifndef NEBULA_TOKEN_H
-#define NEBULA_TOKEN_H
+#ifndef NEBULA_TOKEN_HPP
+#define NEBULA_TOKEN_HPP
 
 #include <string>
 #include <utility>
@@ -99,4 +99,4 @@ public:
     friend std::ostream& operator<<(std::ostream& os, const Token& token);
 };
 
-#endif //NEBULA_TOKEN_H
+#endif //NEBULA_TOKEN_HPP

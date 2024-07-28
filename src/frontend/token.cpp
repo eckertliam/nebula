@@ -2,7 +2,7 @@
 // Created by Liam Eckert on 7/23/24.
 //
 
-#include "token.h"
+#include "frontend/token.hpp"
 
 std::string token_kind_string(TokenKind kind) {
     switch (kind) {

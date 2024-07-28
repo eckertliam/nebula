@@ -2,7 +2,7 @@
 // Created by Liam Eckert on 7/25/24.
 //
 
-#include "parser.h"
+#include "frontend/parser.hpp"
 
 /// advance forward one token
 Token* Parser::advance() {

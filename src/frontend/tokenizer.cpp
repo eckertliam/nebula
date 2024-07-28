@@ -6,8 +6,8 @@
 
 #include <unordered_map>
 #include <iostream>
-#include "token.h"
-#include "tokenizer.h"
+#include "frontend/token.hpp"
+#include "frontend/tokenizer.hpp"
 
 /// peek - returns the current character in the source code
 char Tokenizer::peek() {

@@ -2,12 +2,11 @@
 // Created by Liam Eckert on 7/22/24.
 //
 
-#include <vector>
-#include "token.h"
-
 #ifndef NEBULA_TOKENIZER_H
 #define NEBULA_TOKENIZER_H
 
+#include <vector>
+#include "token.hpp"
 
 class Tokenizer {
 private:

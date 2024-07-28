@@ -3,12 +3,14 @@ project(nebula)
 
 set(CMAKE_CXX_STANDARD 20)
 
+include_directories(include)
+
 add_executable(nebula src/main.cpp
-        src/frontend/token.h
+        include/frontend/token.hpp
         src/frontend/token.cpp
-        src/frontend/tokenizer.h
+        include/frontend/tokenizer.hpp
         src/frontend/tokenizer.cpp
         src/frontend/ast.cpp
-        src/frontend/ast.h
+        include/frontend/ast.hpp
         src/frontend/parser.cpp
-        src/frontend/parser.h)
+        include/frontend/parser.hpp)
