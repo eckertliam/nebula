@@ -8,13 +8,11 @@
 #include <string>
 #include <utility>
 #include <iostream>
+#include <optional>
 
 enum class TokenKind {
     ERROR,
     DOCSTRING,
-    INDENT,
-    DEDENT,
-    NEWLINE,
     ENDMARKER,
     SYMBOL,
     NUMBER,
@@ -89,13 +87,25 @@ enum class TokenKind {
 
 std::string token_kind_string(TokenKind kind);
 
+class Lexeme {
+private:
+    const std::string& source;
+    size_t start;
+    size_t length;
+public:
+    Lexeme(const std::string& source, size_t start, size_t length) : source(source), start(start), length(length) {};
+    [[nodiscard]] std::string_view view() const {
+        return std::string_view(source).substr(start, length);
+    }
+};
+
+
 class Token {
 public:
     TokenKind kind;
-    std::string value;
+    Lexeme lexeme;
     size_t line;
-    Token(TokenKind kind, std::string value, uint8_t line) : kind(kind), value(std::move(value)), line(line) {}
-    Token(TokenKind kind, size_t line) : kind(kind), line(line) {}
+    Token(TokenKind kind, Lexeme lexeme, size_t line) : kind(kind), lexeme(lexeme), line(line) {}
     friend std::ostream& operator<<(std::ostream& os, const Token& token);
 };
 

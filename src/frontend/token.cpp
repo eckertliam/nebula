@@ -10,12 +10,6 @@ std::string token_kind_string(TokenKind kind) {
             return "ERROR";
         case TokenKind::DOCSTRING:
             return "DOCSTRING";
-        case TokenKind::INDENT:
-            return "INDENT";
-        case TokenKind::DEDENT:
-            return "DEDENT";
-        case TokenKind::NEWLINE:
-            return "NEWLINE";
         case TokenKind::ENDMARKER:
             return "ENDMARKER";
         case TokenKind::NUMBER:
@@ -156,14 +150,15 @@ std::string token_kind_string(TokenKind kind) {
 std::ostream& operator<<(std::ostream& os, const Token& token) {
     std::string line = std::to_string(token.line);
     std::string kind = token_kind_string(token.kind);
-    std::string value;
+    std::string_view lexeme = token.lexeme.view();
     if (kind == "ERROR" || kind == "DOCSTRING" || kind == "NUMBER" || kind == "STRING" || kind == "SYMBOL") {
-        value = token.value;
+        os << kind << " " << lexeme << " line " << line;
+        return os;
     }
-    if (value.empty()) {
+    if (lexeme.empty()) {
         os << kind << " line " << line;
     } else {
-        os << kind << " " << value << " line " << line;
+        os << kind << " " << lexeme << " line " << line;
     }
     return os;
 }

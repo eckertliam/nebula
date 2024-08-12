@@ -30,23 +30,25 @@ char Tokenizer::advance() {
 
 /// simple_token - creates a token with no lexeme
 void Tokenizer::simple_token(TokenKind kind) {
-    tokens.emplace_back(kind, "", line);
+    Lexeme lexeme = {"", 0, 0};
+    tokens.emplace_back(kind, lexeme, line);
 }
 
 /// token - creates a token with a lexeme
 void Tokenizer::token(TokenKind kind) {
-    std::string lexeme = get_lexeme();
+    Lexeme lexeme = get_lexeme();
     tokens.emplace_back(kind, lexeme, line);
 }
 
 /// error_token - creates an error token with a message
 void Tokenizer::error_token(const std::string& message) {
-    tokens.emplace_back(TokenKind::ERROR, message, line);
+    Lexeme lexeme = {message, 0, message.size()};
+    tokens.emplace_back(TokenKind::ERROR, lexeme, line);
 }
 
 /// get_lexeme - returns the lexeme of the current token
-std::string Tokenizer::get_lexeme() {
-    return source.substr(start, current - start);
+Lexeme Tokenizer::get_lexeme() {
+    return {source, start, current - start};
 }
 
 /// number - consumes a number and creates a number token
@@ -73,7 +75,7 @@ void Tokenizer::string() {
     // consume closing quote
     advance();
     // remove quotes
-    std::string lexeme = source.substr(start + 1, current - start - 2);
+    Lexeme lexeme = {source, start + 1, current - start - 2};
     tokens.emplace_back(TokenKind::STRING, lexeme, line);
 }
 
@@ -106,48 +108,13 @@ void Tokenizer::string() {
 /// symbol - consumes a symbol and creates a symbol token checking for keywords
 void Tokenizer::symbol() {
     while (std::isalnum(peek()) || peek() == '_') advance();
-    std::string lexeme = get_lexeme();
-    if (KEYWORD_MAP.find(lexeme) != KEYWORD_MAP.end()) {
-        tokens.emplace_back(KEYWORD_MAP.at(lexeme), lexeme, line);
+    // we need the literal symbol
+    std::string literal = source.substr(start, current - start);
+    if (KEYWORD_MAP.find(literal) != KEYWORD_MAP.end()) {
+        tokens.emplace_back(KEYWORD_MAP.at(literal), get_lexeme(), line);
     } else {
-        tokens.emplace_back(TokenKind::SYMBOL, lexeme, line);
+        tokens.emplace_back(TokenKind::SYMBOL, get_lexeme(), line);
     }
-}
-
-/// newline - consumes trailing spaces and creates a newline token
-void Tokenizer::newline() {
-    // drop everything until the newline
-    while (peek() != '\n' && !is_at_end()) advance();
-    if (is_at_end()) return;
-    // consume the newline
-    advance();
-    simple_token(TokenKind::NEWLINE);
-    line++;
-    indentation();
-}
-
-/// indentation - consumes spaces and handles the indentation level
-void Tokenizer::indentation() {
-    size_t spaces = 0;
-    while (peek() == ' ' &&  peek() != '\n' && !is_at_end()) {
-        spaces++;
-        advance();
-    }
-    if (is_at_end()) return;
-    if (peek() == '\n') {
-        newline();
-        return;
-    }
-    if (spaces > indents.back()) {
-        indents.push_back(spaces);
-        tokens.emplace_back(TokenKind::INDENT, "", line);
-    } else {
-        while (spaces < indents.back()) {
-            indents.pop_back();
-            tokens.emplace_back(TokenKind::DEDENT, "", line);
-        }
-    }
-
 }
 
 void Tokenizer::docstring() {
@@ -160,14 +127,20 @@ void Tokenizer::docstring() {
         return;
     }
     // remove the three slashes from the beginning of the docstring
-    std::string lexeme = source.substr(start + 3, current - start - 3);
+    Lexeme lexeme = {source, start + 3, current - start - 3};
     tokens.emplace_back(TokenKind::DOCSTRING, lexeme, line);
-    // handle the newline
-    newline();
+}
+
+void Tokenizer::skip_whitespace() {
+    while (std::isspace(peek())) {
+        if (peek() == '\n') line++;
+        advance();
+    }
 }
 
 /// next_token - consumes the next token in the source code
 void Tokenizer::next_token() {
+    skip_whitespace();
     start = current;
     char c = advance();
     switch (c) {
@@ -324,19 +297,6 @@ void Tokenizer::next_token() {
         case ';':
             simple_token(TokenKind::SEMICOLON);
             break;
-        case '\n':
-            line++;
-            simple_token(TokenKind::NEWLINE);
-            indentation();
-            break;
-        case ' ':
-            // handles spaces at the end of a line
-            if (peek() == ' ') {
-                newline();
-            } else {
-                next_token();
-            }
-            break;
         case '"':
             string();
             break;
@@ -350,9 +310,9 @@ void Tokenizer::next_token() {
             } else if (std::isalpha(c) || c == '_') {
                 symbol();
             } else {
-                // get lexeme of unexpected token
-                std::string lexeme = get_lexeme();
-                error_token("Unexpected lexeme " + lexeme);
+                // get the literal lexeme
+                std::string literal = source.substr(start, current - start);
+                error_token("Unexpected lexeme " + literal);
                 finished = true;
             }
     }

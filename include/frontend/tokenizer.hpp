@@ -10,8 +10,6 @@
 
 class Tokenizer {
 private:
-    /// indentation level stack
-    std::vector<size_t> indents = {0};
     size_t line;
     std::string source;
     size_t start;
@@ -24,13 +22,12 @@ private:
     char advance();
     void simple_token(TokenKind kind);
     void token(TokenKind kind);
-    std::string get_lexeme();
+    Lexeme get_lexeme();
     void error_token(const std::string& message);
     void number();
     void string();
     void symbol();
-    void newline();
-    void indentation();
+    void skip_whitespace();
     void docstring();
     void next_token();
     bool is_at_end();

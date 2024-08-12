@@ -13,4 +13,6 @@ add_executable(nebula src/main.cpp
         src/frontend/ast.cpp
         include/frontend/ast.hpp
         src/frontend/parser.cpp
-        include/frontend/parser.hpp)
+        include/frontend/parser.hpp
+        include/frontend/lexeme.hpp
+        src/frontend/lexeme.cpp)
