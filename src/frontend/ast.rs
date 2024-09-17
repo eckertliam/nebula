@@ -108,6 +108,20 @@ impl Statement {
             kind: StatementNode::FnDeclaration(FnDeclaration { name, generic_params, params, _type, body }),
         }
     }
+
+    pub fn struct_declaration(name: String, loc: Loc, generic_params: Vec<GenericParam>, fields: Vec<(String, Type)>) -> Self {
+        Self {
+            loc,
+            kind: StatementNode::StructDeclaration(StructDeclaration { name, generic_params, fields }),
+        }
+    }
+
+    pub fn enum_declaration(name: String, loc: Loc, generic_params: Vec<GenericParam>, variants: Vec<(String, Vec<Type>)>) -> Self {
+        Self {
+            loc,
+            kind: StatementNode::EnumDeclaration(EnumDeclaration { name, generic_params, variants }),
+        }
+    }
 }
 
 pub enum StatementNode {
@@ -118,6 +132,7 @@ pub enum StatementNode {
     StructDeclaration(StructDeclaration),
     EnumDeclaration(EnumDeclaration),
     TraitDeclaration(TraitDeclaration),
+    TypeDeclaration(TypeDeclaration),
     Expression(Expression),
     Return(Expression),
 }

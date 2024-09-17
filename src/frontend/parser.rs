@@ -40,6 +40,8 @@ fn parse_statement(tokens: &mut TokenIter, start_loc: Loc) -> Result<Statement, 
         TokenKind::Let => parse_var_decl(tokens, true, start_loc),
         TokenKind::Const => parse_var_decl(tokens, false, start_loc),
         TokenKind::Fn => parse_fn_decl(tokens, start_loc),
+        TokenKind::Struct => parse_struct_decl(tokens, start_loc),
+        TokenKind::Enum => parse_enum_decl(tokens, start_loc),
         _ => Err(format!("Error: Unexpected token {:?} at {:?}", token.kind, token.loc)),
     }
 }
@@ -86,11 +88,8 @@ fn parse_type(tokens: &mut TokenIter) -> Result<Type, String> {
                                 None => break,
                             }
                         }
-                        match expect_kind(tokens, TokenKind::Gt) {
-                            Ok(_) => (),
-                            Err(e) => {
-                                return Err(e);
-                            }
+                        if let Err(e) = expect_kind(tokens, TokenKind::Gt) {
+                            return Err(e);
                         }
                         return Ok(Type::generic(type_ident.lexeme.unwrap(), generic_args, start_loc));
                     } 
@@ -119,23 +118,17 @@ fn parse_type(tokens: &mut TokenIter) -> Result<Type, String> {
                         None => break,
                     }
                 }
-                match expect_kind(tokens, TokenKind::RParen) {
-                    Ok(_) => (),
-                    Err(e) => {
-                        return Err(e);
-                    }
-                };
-                if let Some(peeked) = tokens.peek() {
-                    if peeked.kind == TokenKind::Arrow {
-                        tokens.next();
-                        let return_type = match parse_type(tokens) {
-                            Ok(t) => t,
-                            Err(e) => {
-                                return Err(e);
-                            }
-                        };
-                        return Ok(Type::function(types, Box::new(return_type), start_loc));
-                    }
+                if let Err(e) = expect_kind(tokens, TokenKind::RParen) {
+                    return Err(e);
+                }
+                if expect_kind(tokens, TokenKind::Arrow).is_ok() {
+                    let return_type = match parse_type(tokens) {
+                        Ok(t) => t,
+                        Err(e) => {
+                            return Err(e);
+                        }
+                    };
+                    return Ok(Type::function(types, Box::new(return_type), start_loc));
                 }
                 return Ok(Type::tuple(types, start_loc));
             }
@@ -153,11 +146,8 @@ fn parse_type(tokens: &mut TokenIter) -> Result<Type, String> {
                         return Err(e);
                     }
                 };
-                match expect_kind(tokens, TokenKind::RBracket) {
-                    Ok(_) => (),
-                    Err(e) => {
-                        return Err(e);
-                    }
+                if let Err(e) = expect_kind(tokens, TokenKind::RBracket) {
+                    return Err(e);
                 }
                 return Ok(Type::array(Box::new(inner_type), size, start_loc));
             }
@@ -197,11 +187,8 @@ fn parse_var_decl(tokens: &mut TokenIter, is_let: bool, start_loc: Loc) -> Resul
             return Err(e);
         }
     };
-    match expect_kind(tokens, TokenKind::Semicolon) {
-        Ok(_) => (),
-        Err(e) => {
-            return Err(e);
-        }
+    if let Err(e) = expect_kind(tokens, TokenKind::Semicolon) {
+        return Err(e);
     }
     if is_let {
         return Ok(Statement::let_declaration(ident.lexeme.unwrap(), start_loc, _type, value));
@@ -219,87 +206,72 @@ fn parse_fn_decl(tokens: &mut TokenIter, start_loc: Loc) -> Result<Statement, St
     };
     // check for generics
     let mut generic_params = Vec::new();
-    match expect_kind(tokens, TokenKind::Lt) {
-        Ok(_) => {
-            loop {
-                let gen_param = parse_generic_param(tokens);
-                match gen_param {
-                    Ok(param) => generic_params.push(param),
-                    Err(e) => {
-                        return Err(e);
-                    }
-                }
-                // if there is a comma keep parsing generics
-                match tokens.peek() {
-                    Some(token) => {
-                        if token.kind == TokenKind::Comma {
-                            tokens.next();
-                        } else {
-                            break;
-                        }
-                    }
-                    None => break,
+    if expect_kind(tokens, TokenKind::Lt).is_ok() {
+        loop {
+            let gen_param = parse_generic_param(tokens);
+            match gen_param {
+                Ok(param) => generic_params.push(param),
+                Err(e) => {
+                    return Err(e);
                 }
             }
+            // if there is a comma keep parsing generics
+            match tokens.peek() {
+                Some(token) => {
+                    if token.kind == TokenKind::Comma {
+                        tokens.next();
+                    } else {
+                        break;
+                    }
+                }
+                None => break,
+            }
         }
-        Err(_) => (),
     }
     // expect a closing angle bracket if there were generics
     if !generic_params.is_empty() {
-        match expect_kind(tokens, TokenKind::Gt) {
-            Ok(_) => (),
-            Err(e) => {
-                return Err(e);
-            }
+        if let Err(e) = expect_kind(tokens, TokenKind::Gt) {
+            return Err(e);
         }
     }
     // parse params
     let mut params = Vec::new();
-    match expect_kind(tokens, TokenKind::LParen) {
-        Ok(_) => {
-            loop {
-                let param_ident = match expect_kind(tokens, TokenKind::Ident) {
-                    Ok(token) => token,
-                    Err(e) => {
-                        return Err(e);
-                    }
-                };
-                let param_type = match parse_type(tokens) {
-                    Ok(t) => t,
-                    Err(e) => {
-                        return Err(e);
-                    }
-                };
-                params.push((param_ident.lexeme.unwrap(), param_type));
-                // keep parsing params if there is a comma
-                match tokens.peek() {
-                    Some(token) => {
-                        if token.kind == TokenKind::Comma {
-                            tokens.next();
-                        } else {
-                            break;
-                        }
-                    }
-                    None => break,
+    if let Err(e) = expect_kind(tokens, TokenKind::LParen) {
+        return Err(e);
+    } else {
+        loop {
+            let param_ident = match expect_kind(tokens, TokenKind::Ident) {
+                Ok(token) => token,
+                Err(e) => {
+                    return Err(e);
                 }
+            };
+            let param_type = match parse_type(tokens) {
+                Ok(t) => t,
+                Err(e) => {
+                    return Err(e);
+                }
+            };
+            params.push((param_ident.lexeme.unwrap(), param_type));
+            // keep parsing params if there is a comma
+            match tokens.peek() {
+                Some(token) => {
+                    if token.kind == TokenKind::Comma {
+                        tokens.next();
+                    } else {
+                        break;
+                    }
+                }
+                None => break,
             }
         }
-        Err(e) => {
-            return Err(e);
-        }
     }
-    match expect_kind(tokens, TokenKind::RParen) {
-        Ok(_) => (),
-        Err(e) => {
-            return Err(e);
-        }
+    if let Err(e) = expect_kind(tokens, TokenKind::RParen) {
+        return Err(e);
     }
     // expect an arrow
-    match expect_kind(tokens, TokenKind::Arrow) {
-        Ok(_) => (),
-        Err(e) => {
-            return Err(e);
-        }
+    if let Err(e) = expect_kind(tokens, TokenKind::Arrow) {
+        return Err(e);
     }
     // parse the return type
     let return_type = match parse_type(tokens) {
@@ -310,33 +282,34 @@ fn parse_fn_decl(tokens: &mut TokenIter, start_loc: Loc) -> Result<Statement, St
     };
     // parse the body
     let mut body = Vec::new();
-    match expect_kind(tokens, TokenKind::LBrace) {
-        Ok(_) => {
-            loop {
-                match tokens.peek() {
-                    Some(token) => {
-                        if token.kind == TokenKind::RBrace {
-                            tokens.next();
-                            break;
-                        } else {
-                            let inner_loc = token.loc;
-                            let stmt = match parse_statement(tokens, inner_loc) {
-                                Ok(s) => s,
-                                Err(e) => {
-                                    return Err(e);
-                                }
-                            };
-                            body.push(stmt);
-                        }
+    if let Err(e) = expect_kind(tokens, TokenKind::LBrace) {
+        return Err(e);
+    } else {
+        loop {
+            match tokens.peek() {
+                Some(token) => {
+                    if token.kind == TokenKind::RBrace {
+                        tokens.next();
+                        break;
+                    } else {
+                        let inner_loc = token.loc;
+                        let stmt = match parse_statement(tokens, inner_loc) {
+                            Ok(s) => s,
+                            Err(e) => {
+                                return Err(e);
+                            }
+                        };
+                        body.push(stmt);
                     }
-                    None => break,
                 }
+                None => break,
             }
         }
-        Err(e) => {
-            return Err(e);
-        }
-    };
+    }
+    // consume the closing brace
+    if let Err(e) = expect_kind(tokens, TokenKind::RBrace) {
+        return Err(e);
+    }
     return Ok(Statement::fn_declaration(ident.lexeme.unwrap(), start_loc, generic_params, params, return_type, body))
 }
 
@@ -347,30 +320,180 @@ fn parse_generic_param(tokens: &mut TokenIter) -> Result<GenericParam, String> {
     };
     let mut bounds = Vec::new();
     // check for a colon
-    match tokens.peek() {
-        Some(token) => {
-            if token.kind == TokenKind::Colon {
-                tokens.next();
-                loop {
-                    let bound = match parse_type(tokens) {
-                        Ok(t) => t,
-                        Err(e) => return Err(e),
-                    };
-                    bounds.push(bound);
-                    match tokens.peek() {
-                        Some(token) => {
-                            if token.kind == TokenKind::Comma {
-                                tokens.next();
-                            } else {
-                                break;
-                            }
+    if let Some(token) = tokens.peek() {
+        if token.kind == TokenKind::Colon {
+            tokens.next();
+            loop {
+                let bound = match parse_type(tokens) {
+                    Ok(t) => t,
+                    Err(e) => return Err(e),
+                };
+                bounds.push(bound);
+                match tokens.peek() {
+                    Some(token) => {
+                        if token.kind == TokenKind::Comma {
+                            tokens.next();
+                        } else {
+                            break;
                         }
-                        None => break,
                     }
+                    None => break,
                 }
             }
         }
-        None => (),
     };
     Ok(GenericParam { type_var: type_var.lexeme.unwrap(), bounds })
+}
+
+fn parse_struct_decl(tokens: &mut TokenIter, start_loc: Loc) -> Result<Statement, String> {
+    let ident = match expect_kind(tokens, TokenKind::Ident) {
+        Ok(token) => token,
+        Err(e) => return Err(e),
+    };
+    let mut generic_params = Vec::new();
+    if expect_kind(tokens, TokenKind::Lt).is_ok() {
+        loop {
+            let gen_param = parse_generic_param(tokens);
+            match gen_param {
+                Ok(param) => generic_params.push(param),
+                Err(e) => return Err(e),
+            }
+            match tokens.peek() {
+                Some(token) => {
+                    if token.kind == TokenKind::Comma {
+                        tokens.next();
+                    } else {
+                        break;
+                    }
+                }
+                None => break,
+            }
+        }
+    }
+    let mut fields = Vec::new();
+    if let Err(e) = expect_kind(tokens, TokenKind::LBrace) {
+       return Err(e);
+    } else {
+        loop {
+            match tokens.peek() {
+                Some(token) => {
+                    match token.kind {
+                        TokenKind::RBrace => {
+                            tokens.next();
+                            break;
+                        }
+                        TokenKind::Ident => {
+                            let field_ident = tokens.next().unwrap();
+                            match expect_kind(tokens, TokenKind::Colon) {
+                                Ok(_) => (),
+                                Err(e) => return Err(e),
+                            }
+                            let field_type = match parse_type(tokens) {
+                                Ok(t) => t,
+                                Err(e) => return Err(e),
+                            };
+                            fields.push((field_ident.lexeme.unwrap(), field_type));
+                            match tokens.peek() {
+                                Some(token) => {
+                                    if token.kind == TokenKind::Comma {
+                                        tokens.next();
+                                    } else {
+                                        break;
+                                    }
+                                }
+                                None => break,
+                            }
+                        }
+                        _ => return Err(format!("Error: Unexpected token {:?} at {:?}", token.kind, token.loc)),
+                    }
+                }
+                None => break,
+            };
+        }
+    }
+    // consume the closing brace
+    if let Err(e) = expect_kind(tokens, TokenKind::RBrace) {
+        return Err(e);
+    }
+    Ok(Statement::struct_declaration(ident.lexeme.unwrap(), start_loc, generic_params, fields))
+}
+
+fn parse_enum_decl(tokens: &mut TokenIter, start_loc: Loc) -> Result<Statement, String> {
+    let ident = match expect_kind(tokens, TokenKind::Ident) {
+        Ok(token) => token,
+        Err(e) => return Err(e),
+    };
+    let mut generic_params = Vec::new();
+    if expect_kind(tokens, TokenKind::Lt).is_ok() {
+        loop {
+            let gen_param = parse_generic_param(tokens);
+            match gen_param {
+                Ok(param) => generic_params.push(param),
+                Err(e) => return Err(e),
+            }
+            match tokens.peek() {
+                Some(token) => {
+                    if token.kind == TokenKind::Comma {
+                        tokens.next();
+                    } else {
+                        break;
+                    }
+                }
+                None => break,
+            }
+        }
+    }
+    if !generic_params.is_empty() {
+        if let Err(e) = expect_kind(tokens, TokenKind::Gt) {
+            return Err(e);
+        }
+    }
+    let mut variants = Vec::new();
+    // consume the opening brace
+    if let Err(e) = expect_kind(tokens, TokenKind::LBrace) {
+        return Err(e);
+    } 
+    loop {
+        if let Some(peeked) = tokens.peek() {
+            if peeked.kind == TokenKind::RBrace {
+                tokens.next();
+                break;
+            } else if peeked.kind == TokenKind::Ident {
+                let variant_ident = tokens.next().unwrap();
+                let mut variant_types = Vec::new();
+                if expect_kind(tokens, TokenKind::LParen).is_ok() {
+                    loop {
+                        let variant_type = match parse_type(tokens) {
+                            Ok(t) => t,
+                            Err(e) => return Err(e),
+                        };
+                        variant_types.push(variant_type);
+                        match tokens.peek() {
+                            Some(token) => {
+                                if token.kind == TokenKind::Comma {
+                                    tokens.next();
+                                } else {
+                                    break;
+                                }
+                            }
+                            None => break,
+                        }
+                    }
+                    if let Err(e) = expect_kind(tokens, TokenKind::RParen) {
+                        return Err(e);
+                    }
+                }
+                variants.push((variant_ident.lexeme.unwrap(), variant_types));
+            } else {
+                return Err(format!("Error: Unexpected token {:?} at {:?}", peeked.kind, peeked.loc));
+            }
+        } else {
+            return Err("Error: Unexpected EOF".to_string());
+        }
+    }
+    // consume the closing brace
+    if let Err(e) = expect_kind(tokens, TokenKind::RBrace) {
+        return Err(e);
+    }
+    Ok(Statement::enum_declaration(ident.lexeme.unwrap(), start_loc, generic_params, variants))
 }
