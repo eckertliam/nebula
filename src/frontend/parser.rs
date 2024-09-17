@@ -16,6 +16,8 @@ pub fn parse(tokens: Vec<Token>) -> Program {
         if let Some(token) = tokens.peek() {
             if token.kind == TokenKind::Eof {
                 break;
+            } else if token.kind == TokenKind::Error {
+                eprintln!("Error: {}", token.clone().lexeme.unwrap());
             } else {
                 let start_loc = token.loc;
                 let statement = match parse_statement(&mut tokens, start_loc) {
@@ -55,7 +57,115 @@ fn expect_kind(tokens: &mut TokenIter, kind: TokenKind) -> Result<Token, String>
 }
 
 fn parse_type(tokens: &mut TokenIter) -> Result<Type, String> {
-    unimplemented!()
+    if let Some(token) = tokens.next() {
+        let start_loc = token.loc;
+        match token.kind {
+            TokenKind::Ident => {
+                let type_ident = token;
+                if let Some(peeked) = tokens.peek() {
+                    if peeked.kind == TokenKind::Lt {
+                        // parse generic type
+                        tokens.next();
+                        let mut generic_args = Vec::new();
+                        loop {
+                            let arg = match parse_type(tokens) {
+                                Ok(t) => t,
+                                Err(e) => {
+                                    return Err(e);
+                                }
+                            };
+                            generic_args.push(arg);
+                            match tokens.peek() {
+                                Some(token) => {
+                                    if token.kind == TokenKind::Comma {
+                                        tokens.next();
+                                    } else {
+                                        break;
+                                    }
+                                }
+                                None => break,
+                            }
+                        }
+                        match expect_kind(tokens, TokenKind::Gt) {
+                            Ok(_) => (),
+                            Err(e) => {
+                                return Err(e);
+                            }
+                        }
+                        return Ok(Type::generic(type_ident.lexeme.unwrap(), generic_args, start_loc));
+                    } 
+                }
+                return Ok(Type::base(type_ident.lexeme.unwrap(), start_loc));
+            }
+            TokenKind::LParen => {
+                // parse tuple or function type
+                let mut types = Vec::new();
+                loop {
+                    let t = match parse_type(tokens) {
+                        Ok(t) => t,
+                        Err(e) => {
+                            return Err(e);
+                        }
+                    };
+                    types.push(t);
+                    match tokens.peek() {
+                        Some(token) => {
+                            if token.kind == TokenKind::Comma {
+                                tokens.next();
+                            } else {
+                                break;
+                            }
+                        }
+                        None => break,
+                    }
+                }
+                match expect_kind(tokens, TokenKind::RParen) {
+                    Ok(_) => (),
+                    Err(e) => {
+                        return Err(e);
+                    }
+                };
+                if let Some(peeked) = tokens.peek() {
+                    if peeked.kind == TokenKind::Arrow {
+                        tokens.next();
+                        let return_type = match parse_type(tokens) {
+                            Ok(t) => t,
+                            Err(e) => {
+                                return Err(e);
+                            }
+                        };
+                        return Ok(Type::function(types, Box::new(return_type), start_loc));
+                    }
+                }
+                return Ok(Type::tuple(types, start_loc));
+            }
+            TokenKind::LBracket => {
+                // parse array type
+                let inner_type = match parse_type(tokens) {
+                    Ok(t) => t,
+                    Err(e) => {
+                        return Err(e);
+                    }
+                };
+                let size = match parse_expression(tokens) {
+                    Ok(expr) => expr,
+                    Err(e) => {
+                        return Err(e);
+                    }
+                };
+                match expect_kind(tokens, TokenKind::RBracket) {
+                    Ok(_) => (),
+                    Err(e) => {
+                        return Err(e);
+                    }
+                }
+                return Ok(Type::array(Box::new(inner_type), size, start_loc));
+            }
+            _ => Err(format!("Error: Expected type but got {:?} at {:?}", token.kind, token.loc)),
+        }
+    } else {
+        return Err("Error: Expected type but got EOF".to_string());
+    }
 }
 
 fn parse_expression(tokens: &mut TokenIter) -> Result<Expression, String> {

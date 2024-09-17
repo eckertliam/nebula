@@ -19,9 +19,46 @@ pub struct Type {
     pub kind: TypeNode,
 }
 
+impl Type {
+    pub fn base(name: String, loc: Loc) -> Self {
+        Self {
+            loc,
+            kind: TypeNode::Base(name),
+        }
+    }
+
+    pub fn generic(name: String, params: Vec<Type>, loc: Loc) -> Self {
+        Self {
+            loc,
+            kind: TypeNode::Generic(name, params),
+        }
+    }
+
+    pub fn tuple(params: Vec<Type>, loc: Loc) -> Self {
+        Self {
+            loc,
+            kind: TypeNode::Tuple(params),
+        }
+    }
+
+    pub fn function(params: Vec<Type>, ret: Box<Type>, loc: Loc) -> Self {
+        Self {
+            loc,
+            kind: TypeNode::Function(params, ret),
+        }
+    }
+
+    pub fn array(elem: Box<Type>, size: Expression, loc: Loc) -> Self {
+        Self {
+            loc,
+            kind: TypeNode::Array(elem, size),
+        }
+    }
+}
+
 pub enum TypeNode {
     Base(String),
-    Generic(Box<Type>, Vec<Type>),
+    Generic(String, Vec<Type>),
     Array(Box<Type>, Expression),
     Function(Vec<Type>, Box<Type>),
     Tuple(Vec<Type>),
