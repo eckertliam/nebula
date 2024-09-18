@@ -626,4 +626,28 @@ mod tests {
             _ => panic!("Expected const declaration but got {:?}", stmt.kind),
         }
     }
+
+    #[test]
+    fn parse_binary_expr() {
+        let src = "const x: i32 = 42 + 3 * 2;";
+        let tokens = tokenize(src);
+        let program = parse(tokens).unwrap();
+        assert_eq!(program.statements.len(), 1);
+        let stmt = program.statements[0].clone();
+        if let StatementNode::ConstDeclaration(const_decl) = stmt.kind {
+            if let ExpressionNode::Mul(lhs, rhs) = const_decl.value.kind.clone() {
+                if let ExpressionNode::Add(lhs, rhs) = lhs.kind {
+                    assert_eq!(lhs.kind, ExpressionNode::Int(42));
+                    assert_eq!(rhs.kind, ExpressionNode::Int(3))
+                } else {
+                    panic!("Expected add expression but got {:?}", const_decl.value.kind);
+                }
+                assert_eq!(rhs.kind, ExpressionNode::Int(2));
+            } else {
+                panic!("Expected mul expression but got {:?}", const_decl.value.kind);
+            }
+        } else {
+            panic!("Expected const declaration but got {:?}", stmt.kind);
+        }
+    }
 }
