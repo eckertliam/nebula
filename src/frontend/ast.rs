@@ -18,12 +18,12 @@ impl Program {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Type {
+pub struct AstType {
     pub loc: Loc,
     pub kind: TypeNode,
 }
 
-impl Type {
+impl AstType {
     pub fn base(name: String, loc: Loc) -> Self {
         Self {
             loc,
@@ -31,28 +31,28 @@ impl Type {
         }
     }
 
-    pub fn generic(name: String, params: Vec<Type>, loc: Loc) -> Self {
+    pub fn generic(name: String, params: Vec<AstType>, loc: Loc) -> Self {
         Self {
             loc,
             kind: TypeNode::Generic(name, params),
         }
     }
 
-    pub fn tuple(params: Vec<Type>, loc: Loc) -> Self {
+    pub fn tuple(params: Vec<AstType>, loc: Loc) -> Self {
         Self {
             loc,
             kind: TypeNode::Tuple(params),
         }
     }
 
-    pub fn function(params: Vec<Type>, ret: Box<Type>, loc: Loc) -> Self {
+    pub fn function(params: Vec<AstType>, ret: Box<AstType>, loc: Loc) -> Self {
         Self {
             loc,
             kind: TypeNode::Function(params, ret),
         }
     }
 
-    pub fn array(elem: Box<Type>, size: Expression, loc: Loc) -> Self {
+    pub fn array(elem: Box<AstType>, size: Expression, loc: Loc) -> Self {
         Self {
             loc,
             kind: TypeNode::Array(elem, size),
@@ -63,10 +63,10 @@ impl Type {
 #[derive(Debug, Clone, PartialEq)]
 pub enum TypeNode {
     Base(String),
-    Generic(String, Vec<Type>),
-    Array(Box<Type>, Expression),
-    Function(Vec<Type>, Box<Type>),
-    Tuple(Vec<Type>),
+    Generic(String, Vec<AstType>),
+    Array(Box<AstType>, Expression),
+    Function(Vec<AstType>, Box<AstType>),
+    Tuple(Vec<AstType>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -215,35 +215,35 @@ pub struct Statement {
 }
 
 impl Statement {
-    pub fn const_declaration(name: String, loc: Loc, _type: Type, value: Expression) -> Self {
+    pub fn const_declaration(name: String, loc: Loc, _type: AstType, value: Expression) -> Self {
         Self {
             loc,
             kind: StatementNode::ConstDeclaration(ConstDeclaration { name, _type, value }),
         }
     }
 
-    pub fn let_declaration(name: String, loc: Loc, _type: Type, value: Expression) -> Self {
+    pub fn let_declaration(name: String, loc: Loc, _type: AstType, value: Expression) -> Self {
         Self {
             loc,
             kind: StatementNode::LetDeclaration(LetDeclaration { name, _type, value }),
         }
     }
 
-    pub fn fn_declaration(name: String, loc: Loc, generic_params: Vec<GenericParam>, params: Vec<(String, Type)>, _type: Type, body: Vec<Statement>) -> Self {
+    pub fn fn_declaration(name: String, loc: Loc, generic_params: Vec<GenericParam>, params: Vec<(String, AstType)>, _type: AstType, body: Vec<Statement>) -> Self {
         Self {
             loc,
             kind: StatementNode::FnDeclaration(FnDeclaration { name, generic_params, params, _type, body }),
         }
     }
 
-    pub fn struct_declaration(name: String, loc: Loc, generic_params: Vec<GenericParam>, fields: Vec<(String, Type)>) -> Self {
+    pub fn struct_declaration(name: String, loc: Loc, generic_params: Vec<GenericParam>, fields: Vec<(String, AstType)>) -> Self {
         Self {
             loc,
             kind: StatementNode::StructDeclaration(StructDeclaration { name, generic_params, fields }),
         }
     }
 
-    pub fn enum_declaration(name: String, loc: Loc, generic_params: Vec<GenericParam>, variants: Vec<(String, Vec<Type>)>) -> Self {
+    pub fn enum_declaration(name: String, loc: Loc, generic_params: Vec<GenericParam>, variants: Vec<(String, Vec<AstType>)>) -> Self {
         Self {
             loc,
             kind: StatementNode::EnumDeclaration(EnumDeclaration { name, generic_params, variants }),
@@ -257,14 +257,14 @@ impl Statement {
         }
     }
 
-    pub fn trait_declaration(name: String, loc: Loc, required_impls: Vec<Type>, generic_params: Vec<GenericParam>, methods: Vec<FnDeclaration>) -> Self {
+    pub fn trait_declaration(name: String, loc: Loc, required_impls: Vec<AstType>, generic_params: Vec<GenericParam>, methods: Vec<FnDeclaration>) -> Self {
         Self {
             loc,
             kind: StatementNode::TraitDeclaration(TraitDeclaration { name, required_impls, generic_params, methods }),
         }
     }
 
-    pub fn impl_declaration(_trait: Option<Type>, _type: Type, methods: Vec<FnDeclaration>, loc: Loc) -> Self {
+    pub fn impl_declaration(_trait: Option<AstType>, _type: AstType, methods: Vec<FnDeclaration>, loc: Loc) -> Self {
         Self {
             loc,
             kind: StatementNode::ImplDeclaration(ImplDeclaration { _trait, _type, methods }),
@@ -311,29 +311,29 @@ pub enum StatementNode {
 #[derive(Debug, Clone, PartialEq)]
 pub struct LetDeclaration {
     pub name: String,
-    pub _type: Type,
+    pub _type: AstType,
     pub value: Expression,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConstDeclaration {
     pub name: String,
-    pub _type: Type,
+    pub _type: AstType,
     pub value: Expression,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct GenericParam {
     pub type_var: String,
-    pub bounds: Vec<Type>,
+    pub bounds: Vec<AstType>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FnDeclaration {
     pub name: String,
     pub generic_params: Vec<GenericParam>,
-    pub params: Vec<(String, Type)>,
-    pub _type: Type,
+    pub params: Vec<(String, AstType)>,
+    pub _type: AstType,
     pub body: Vec<Statement>,
 }
 
@@ -351,34 +351,34 @@ pub enum TypeDeclValue {
     // A & B & C
     Intersection(Vec<TypeDeclaration>),
     // A = B
-    Alias(Type),
+    Alias(AstType),
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct StructDeclaration {
     pub name: String,
     pub generic_params: Vec<GenericParam>,
-    pub fields: Vec<(String, Type)>,
+    pub fields: Vec<(String, AstType)>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct EnumDeclaration {
     pub name: String,
     pub generic_params: Vec<GenericParam>,
-    pub variants: Vec<(String, Vec<Type>)>,
+    pub variants: Vec<(String, Vec<AstType>)>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TraitDeclaration {
     pub name: String,
-    pub required_impls: Vec<Type>,
+    pub required_impls: Vec<AstType>,
     pub generic_params: Vec<GenericParam>,
     pub methods: Vec<FnDeclaration>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImplDeclaration {
-    pub _trait: Option<Type>,
-    pub _type: Type,
+    pub _trait: Option<AstType>,
+    pub _type: AstType,
     pub methods: Vec<FnDeclaration>,
 }

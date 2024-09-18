@@ -89,7 +89,7 @@ fn expect_kind(tokens: &mut TokenIter, kind: TokenKind) -> Result<Token, String>
     }
 }
 
-fn parse_type(tokens: &mut TokenIter) -> Result<Type, String> {
+fn parse_type(tokens: &mut TokenIter) -> Result<AstType, String> {
     if let Some(token) = tokens.next() {
         let start_loc = token.loc;
         match token.kind {
@@ -122,10 +122,10 @@ fn parse_type(tokens: &mut TokenIter) -> Result<Type, String> {
                         if let Err(e) = expect_kind(tokens, TokenKind::Gt) {
                             return Err(e);
                         }
-                        return Ok(Type::generic(type_ident.lexeme.unwrap(), generic_args, start_loc));
+                        return Ok(AstType::generic(type_ident.lexeme.unwrap(), generic_args, start_loc));
                     } 
                 }
-                return Ok(Type::base(type_ident.lexeme.unwrap(), start_loc));
+                return Ok(AstType::base(type_ident.lexeme.unwrap(), start_loc));
             }
             TokenKind::LParen => {
                 // parse tuple or function type
@@ -159,9 +159,9 @@ fn parse_type(tokens: &mut TokenIter) -> Result<Type, String> {
                             return Err(e);
                         }
                     };
-                    return Ok(Type::function(types, Box::new(return_type), start_loc));
+                    return Ok(AstType::function(types, Box::new(return_type), start_loc));
                 }
-                return Ok(Type::tuple(types, start_loc));
+                return Ok(AstType::tuple(types, start_loc));
             }
             TokenKind::LBracket => {
                 // parse array type
@@ -180,7 +180,7 @@ fn parse_type(tokens: &mut TokenIter) -> Result<Type, String> {
                 if let Err(e) = expect_kind(tokens, TokenKind::RBracket) {
                     return Err(e);
                 }
-                return Ok(Type::array(Box::new(inner_type), size, start_loc));
+                return Ok(AstType::array(Box::new(inner_type), size, start_loc));
             }
             _ => Err(format!("Error: Expected type but got {:?} at {:?}", token.kind, token.loc)),
         }
