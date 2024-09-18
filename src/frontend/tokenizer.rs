@@ -58,12 +58,14 @@ pub enum TokenKind {
     From,
     As,
     Export,
+    And,
+    Or,
     // Special
     Eof,
     Error,
 } 
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Loc {
     pub line: u32,
     pub column: u32,

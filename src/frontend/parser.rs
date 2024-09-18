@@ -9,29 +9,33 @@ use crate::frontend::{
 
 type TokenIter = Peekable<IntoIter<Token>>;
 
-pub fn parse(tokens: Vec<Token>) -> Program {
+pub fn parse(tokens: Vec<Token>) -> Result<Program, ()> {
     let mut tokens: TokenIter = tokens.into_iter().peekable();
     let mut program = Program::new();
-    loop {
-        if let Some(token) = tokens.peek() {
-            if token.kind == TokenKind::Eof {
-                break;
-            } else if token.kind == TokenKind::Error {
-                eprintln!("Error: {}", token.clone().lexeme.unwrap());
-            } else {
-                let start_loc = token.loc;
-                let statement = match parse_statement(&mut tokens, start_loc) {
-                    Ok(stmt) => stmt,
-                    Err(e) => {
-                        eprintln!("{}", e);
-                        return Program::new();
-                    }
-                };
-                program.push(statement);
-            }
+    let mut errored = false;
+    while let Some(token) = tokens.peek() {
+        if token.kind == TokenKind::Eof {
+            break;
+        } else if token.kind == TokenKind::Error {
+            eprintln!("Error: {}", token.clone().lexeme.unwrap());
+        } else {
+            let start_loc = token.loc;
+            let statement = match parse_statement(&mut tokens, start_loc) {
+                Ok(stmt) => stmt,
+                Err(e) => {
+                    eprintln!("{}", e);
+                    errored = true;
+                    continue;
+                }
+            };
+            program.push(statement);
         }
     }
-    program
+    if errored {
+        return Err(());
+    } else {
+        return Ok(program);
+    }
 }
 
 fn parse_statement(tokens: &mut TokenIter, start_loc: Loc) -> Result<Statement, String> {
@@ -42,6 +46,8 @@ fn parse_statement(tokens: &mut TokenIter, start_loc: Loc) -> Result<Statement, 
         TokenKind::Fn => parse_fn_decl(tokens, start_loc),
         TokenKind::Struct => parse_struct_decl(tokens, start_loc),
         TokenKind::Enum => parse_enum_decl(tokens, start_loc),
+        TokenKind::Trait => parse_trait_decl(tokens, start_loc),
+        TokenKind::Type => parse_type_decl(tokens, start_loc),
         _ => Err(format!("Error: Unexpected token {:?} at {:?}", token.kind, token.loc)),
     }
 }
@@ -159,7 +165,95 @@ fn parse_type(tokens: &mut TokenIter) -> Result<Type, String> {
 }
 
 fn parse_expression(tokens: &mut TokenIter) -> Result<Expression, String> {
-    unimplemented!()
+    if let Some(token) = tokens.peek() {
+        let start_loc = token.loc;
+        // TODO: check for unary operators
+        let lhs = match parse_primary_expression(tokens) {
+            Ok(expr) => expr,
+            Err(e) => {
+                return Err(e);
+            }
+        };
+        return parse_binary_expression(lhs, tokens, 0, start_loc);
+    } else {
+        return Err("Error: Expected expression but got EOF".to_string());
+    }
+}
+
+fn parse_primary_expression(tokens: &mut TokenIter) -> Result<Expression, String> {
+    if let Some(token) = tokens.next() {
+        let start_loc = token.loc;
+        match token.kind {
+            TokenKind::True => Ok(Expression::bool_literal(true, start_loc)),
+            TokenKind::False => Ok(Expression::bool_literal(false, start_loc)),
+            TokenKind::Ident => Ok(Expression::identifier(token.lexeme.unwrap(), start_loc)),
+            TokenKind::Number => {
+                let lexeme = token.lexeme.unwrap();
+                if let Ok(int) = lexeme.parse::<i64>() {
+                    Ok(Expression::int_literal(int, start_loc))
+                } else if let Ok(float) = lexeme.parse::<f64>() {
+                    Ok(Expression::float_literal(float, start_loc))
+                } else {
+                    Err(format!("Error: Failed to parse number {:?} at {:?}", lexeme, start_loc))
+                }
+            }
+            TokenKind::String => Ok(Expression::string_literal(token.lexeme.unwrap(), start_loc)),
+            TokenKind::LParen => unimplemented!("Parsing of parenthesized expressions is not implemented yet"),
+            TokenKind::LBracket => unimplemented!("Parsing of array literals is not implemented yet"),
+            TokenKind::LBrace => unimplemented!("Parsing of block expressions is not implemented yet"),
+            _ => Err(format!("Error: Expected primary expression but got {:?} at {:?}", token.kind, token.loc)),
+        }
+    } else {
+        Err("Error: Expected primary expression but got EOF".to_string())
+    }
+}
+
+fn parse_binary_expression(lhs: Expression, tokens: &mut TokenIter, prec: u8, loc: Loc) -> Result<Expression, String> {
+    if let Some(binop_tok) = peek_binop(tokens) {
+        // parse the right hand side of the binary expression
+        let rhs = match parse_primary_expression(tokens) {
+            Ok(expr) => expr,
+            Err(e) => {
+                return Err(e);
+            }
+        };
+        // create the binary expression node
+        let binary_expr = Expression::binary(binop_tok.kind, lhs, rhs, loc);
+        // check for more binary operators
+        let binop_prec = binop_precedence(binop_tok.kind);
+        if binop_prec > prec {
+            return parse_binary_expression(binary_expr, tokens, binop_prec, loc);
+        } else {
+            return Ok(binary_expr);
+        }
+    } else {
+        // there is no binary operator so just return the left hand side
+        return Ok(lhs);
+    }
+}
+
+/// Consumes and returns a token if it is a binary operator
+fn peek_binop(tokens: &mut TokenIter) -> Option<Token> {
+    if let Some(token) = tokens.peek() {
+        match token.kind {
+            TokenKind::Plus | TokenKind::Minus | TokenKind::Star | TokenKind::Slash | TokenKind::Percent | TokenKind::EqEq | TokenKind::BangEq | TokenKind::Lt | TokenKind::LtEq | TokenKind::Gt | TokenKind::GtEq | TokenKind::And | TokenKind::Or => {
+                return Some(tokens.next().unwrap());
+            }
+            _ => return None,
+        }
+    } else {
+        return None;
+    }
+}
+
+fn binop_precedence(kind: TokenKind) -> u8 {
+    match kind {
+        TokenKind::Or | TokenKind::And => 2,
+        TokenKind::EqEq | TokenKind::BangEq | TokenKind::Lt | TokenKind::LtEq | TokenKind::Gt | TokenKind::GtEq => 5,
+        TokenKind::Plus | TokenKind::Minus => 10,
+        TokenKind::Star | TokenKind::Slash | TokenKind::Percent => 20,
+        _ => 0,
+    }
 }
 
 fn parse_var_decl(tokens: &mut TokenIter, is_let: bool, start_loc: Loc) -> Result<Statement, String> {
@@ -169,6 +263,10 @@ fn parse_var_decl(tokens: &mut TokenIter, is_let: bool, start_loc: Loc) -> Resul
             return Err(e);
         }
     };
+    // consume the colon preceding the type
+    if let Err(e) = expect_kind(tokens, TokenKind::Colon) {
+        return Err(e);
+    }
     let _type = match parse_type(tokens) {
         Ok(t) => t,
         Err(e) => {
@@ -496,4 +594,36 @@ fn parse_enum_decl(tokens: &mut TokenIter, start_loc: Loc) -> Result<Statement, 
         return Err(e);
     }
     Ok(Statement::enum_declaration(ident.lexeme.unwrap(), start_loc, generic_params, variants))
+}
+
+fn parse_trait_decl(tokens: &mut TokenIter, start_loc: Loc) -> Result<Statement, String> {
+    unimplemented!("Trait declaration parsing is not implemented yet");
+}
+
+fn parse_type_decl(tokens: &mut TokenIter, start_loc: Loc) -> Result<Statement, String> {
+    unimplemented!("Type declaration parsing is not implemented yet");
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::frontend::tokenizer::tokenize;
+
+    use super::*;
+
+    #[test]
+    fn parse_simple_const_decl() {
+        let src = "const x: i32 = 42;";
+        let tokens = tokenize(src);
+        let program = parse(tokens).unwrap();
+        assert_eq!(program.statements.len(), 1);
+        let stmt = program.statements[0].clone();
+        match stmt.kind {
+            StatementNode::ConstDeclaration(const_decl) => {
+                assert_eq!(const_decl.name, "x");
+                assert_eq!(const_decl.value.kind, ExpressionNode::Int(42));
+                assert_eq!(const_decl._type.kind, TypeNode::Base("i32".to_string()));
+            }
+            _ => panic!("Expected const declaration but got {:?}", stmt.kind),
+        }
+    }
 }
