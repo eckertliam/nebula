@@ -256,6 +256,41 @@ impl Statement {
             kind: StatementNode::TypeDeclaration(TypeDeclaration { name, generic_params, value }),
         }
     }
+
+    pub fn trait_declaration(name: String, loc: Loc, required_impls: Vec<Type>, generic_params: Vec<GenericParam>, methods: Vec<FnDeclaration>) -> Self {
+        Self {
+            loc,
+            kind: StatementNode::TraitDeclaration(TraitDeclaration { name, required_impls, generic_params, methods }),
+        }
+    }
+
+    pub fn impl_declaration(_trait: Option<Type>, _type: Type, methods: Vec<FnDeclaration>, loc: Loc) -> Self {
+        Self {
+            loc,
+            kind: StatementNode::ImplDeclaration(ImplDeclaration { _trait, _type, methods }),
+        }
+    }
+
+    pub fn block(statements: Vec<Statement>, loc: Loc) -> Self {
+        Self {
+            loc,
+            kind: StatementNode::Block(statements),
+        }
+    }
+
+    pub fn expression(expression: Expression, loc: Loc) -> Self {
+        Self {
+            loc,
+            kind: StatementNode::Expression(expression),
+        }
+    }
+
+    pub fn return_statement(expression: Expression, loc: Loc) -> Self {
+        Self {
+            loc,
+            kind: StatementNode::Return(expression),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -268,6 +303,7 @@ pub enum StatementNode {
     EnumDeclaration(EnumDeclaration),
     TraitDeclaration(TraitDeclaration),
     TypeDeclaration(TypeDeclaration),
+    ImplDeclaration(ImplDeclaration),
     Expression(Expression),
     Return(Expression),
 }

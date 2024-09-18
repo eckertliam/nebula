@@ -39,8 +39,21 @@ pub fn parse(tokens: Vec<Token>) -> Result<Program, ()> {
 }
 
 fn parse_statement(tokens: &mut TokenIter, start_loc: Loc) -> Result<Statement, String> {
-    let token = tokens.next().unwrap();
+    let token = tokens.peek().unwrap();
     match token.kind {
+        TokenKind::Return => {
+            tokens.next();
+            let expr = match parse_expression(tokens) {
+                Ok(e) => e,
+                Err(e) => {
+                    return Err(e);
+                }
+            };
+            if let Err(e) = expect_kind(tokens, TokenKind::Semicolon) {
+                return Err(e);
+            }
+            return Ok(Statement::return_statement(expr, start_loc));
+        }
         TokenKind::Let => parse_var_decl(tokens, true, start_loc),
         TokenKind::Const => parse_var_decl(tokens, false, start_loc),
         TokenKind::Fn => parse_fn_decl(tokens, start_loc),
@@ -48,6 +61,18 @@ fn parse_statement(tokens: &mut TokenIter, start_loc: Loc) -> Result<Statement, 
         TokenKind::Enum => parse_enum_decl(tokens, start_loc),
         TokenKind::Trait => parse_trait_decl(tokens, start_loc),
         TokenKind::Type => parse_type_decl(tokens, start_loc),
+        TokenKind::Ident | TokenKind::Number | TokenKind::String | TokenKind::True | TokenKind::False | TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => {
+            let expr = match parse_expression(tokens) {
+                Ok(e) => e,
+                Err(e) => {
+                    return Err(e);
+                }
+            };
+            if let Err(e) = expect_kind(tokens, TokenKind::Semicolon) {
+                return Err(e);
+            }
+            return Ok(Statement::expression(expr, start_loc));
+        }
         _ => Err(format!("Error: Unexpected token {:?} at {:?}", token.kind, token.loc)),
     }
 }
@@ -257,6 +282,7 @@ fn binop_precedence(kind: TokenKind) -> u8 {
 }
 
 fn parse_var_decl(tokens: &mut TokenIter, is_let: bool, start_loc: Loc) -> Result<Statement, String> {
+    tokens.next();
     let ident = match expect_kind(tokens, TokenKind::Ident) {
         Ok(token) => token,
         Err(e) => {
@@ -296,6 +322,7 @@ fn parse_var_decl(tokens: &mut TokenIter, is_let: bool, start_loc: Loc) -> Resul
 }
 
 fn parse_fn_decl(tokens: &mut TokenIter, start_loc: Loc) -> Result<Statement, String> {
+    tokens.next();
     let ident = match expect_kind(tokens, TokenKind::Ident) {
         Ok(token) => token,
         Err(e) => {
@@ -444,6 +471,7 @@ fn parse_generic_param(tokens: &mut TokenIter) -> Result<GenericParam, String> {
 }
 
 fn parse_struct_decl(tokens: &mut TokenIter, start_loc: Loc) -> Result<Statement, String> {
+    tokens.next();
     let ident = match expect_kind(tokens, TokenKind::Ident) {
         Ok(token) => token,
         Err(e) => return Err(e),
@@ -517,6 +545,7 @@ fn parse_struct_decl(tokens: &mut TokenIter, start_loc: Loc) -> Result<Statement
 }
 
 fn parse_enum_decl(tokens: &mut TokenIter, start_loc: Loc) -> Result<Statement, String> {
+    tokens.next();
     let ident = match expect_kind(tokens, TokenKind::Ident) {
         Ok(token) => token,
         Err(e) => return Err(e),
@@ -597,10 +626,12 @@ fn parse_enum_decl(tokens: &mut TokenIter, start_loc: Loc) -> Result<Statement, 
 }
 
 fn parse_trait_decl(tokens: &mut TokenIter, start_loc: Loc) -> Result<Statement, String> {
+    tokens.next();
     unimplemented!("Trait declaration parsing is not implemented yet");
 }
 
 fn parse_type_decl(tokens: &mut TokenIter, start_loc: Loc) -> Result<Statement, String> {
+    tokens.next();
     unimplemented!("Type declaration parsing is not implemented yet");
 }
 
@@ -649,5 +680,13 @@ mod tests {
         } else {
             panic!("Expected const declaration but got {:?}", stmt.kind);
         }
+    }
+
+    fn parse_func_decl() {
+        let src = "fn add(x: i32, y: i32) -> i32 { return x + y; }";
+        let tokens = tokenize(src);
+        let program = parse(tokens).unwrap();
+        assert_eq!(program.statements.len(), 1);
+
     }
 }
