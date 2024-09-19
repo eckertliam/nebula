@@ -17,6 +17,10 @@ pub enum Instruction {
     Div(Type, usize, usize, usize),
     Mod(Type, usize, usize, usize),
     // control flow
+    // jump to a block
+    Jump(usize),
     // return from a function with a value in a register
     Return(Type, usize),
 }
+
+pub type Block = Vec<Instruction>;

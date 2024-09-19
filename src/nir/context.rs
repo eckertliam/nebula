@@ -30,4 +30,14 @@ impl Context {
     pub fn push_type(&mut self, name: String, ty: Type) {
         self.types.insert(name, ty);
     }
+
+    pub fn get_type(&self, name: &str) -> Option<Type> {
+        if let Some(ty) = self.types.get(name) {
+            Some(ty).cloned()
+        } else if let Some(parent) = &self.parent {
+            parent.get_type(name)
+        } else {
+            None
+        }
+    }
 }

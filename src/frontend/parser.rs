@@ -189,7 +189,7 @@ fn parse_type(tokens: &mut TokenIter) -> Result<AstType, String> {
     }
 }
 
-fn parse_expression(tokens: &mut TokenIter) -> Result<Expression, String> {
+fn parse_expression(tokens: &mut TokenIter) -> Result<AstExpression, String> {
     if let Some(token) = tokens.peek() {
         let start_loc = token.loc;
         // TODO: check for unary operators
@@ -205,24 +205,24 @@ fn parse_expression(tokens: &mut TokenIter) -> Result<Expression, String> {
     }
 }
 
-fn parse_primary_expression(tokens: &mut TokenIter) -> Result<Expression, String> {
+fn parse_primary_expression(tokens: &mut TokenIter) -> Result<AstExpression, String> {
     if let Some(token) = tokens.next() {
         let start_loc = token.loc;
         match token.kind {
-            TokenKind::True => Ok(Expression::bool_literal(true, start_loc)),
-            TokenKind::False => Ok(Expression::bool_literal(false, start_loc)),
-            TokenKind::Ident => Ok(Expression::identifier(token.lexeme.unwrap(), start_loc)),
+            TokenKind::True => Ok(AstExpression::bool_literal(true, start_loc)),
+            TokenKind::False => Ok(AstExpression::bool_literal(false, start_loc)),
+            TokenKind::Ident => Ok(AstExpression::identifier(token.lexeme.unwrap(), start_loc)),
             TokenKind::Number => {
                 let lexeme = token.lexeme.unwrap();
                 if let Ok(int) = lexeme.parse::<i64>() {
-                    Ok(Expression::int_literal(int, start_loc))
+                    Ok(AstExpression::int_literal(int, start_loc))
                 } else if let Ok(float) = lexeme.parse::<f64>() {
-                    Ok(Expression::float_literal(float, start_loc))
+                    Ok(AstExpression::float_literal(float, start_loc))
                 } else {
                     Err(format!("Error: Failed to parse number {:?} at {:?}", lexeme, start_loc))
                 }
             }
-            TokenKind::String => Ok(Expression::string_literal(token.lexeme.unwrap(), start_loc)),
+            TokenKind::String => Ok(AstExpression::string_literal(token.lexeme.unwrap(), start_loc)),
             TokenKind::LParen => unimplemented!("Parsing of parenthesized expressions is not implemented yet"),
             TokenKind::LBracket => unimplemented!("Parsing of array literals is not implemented yet"),
             TokenKind::LBrace => unimplemented!("Parsing of block expressions is not implemented yet"),
@@ -233,7 +233,7 @@ fn parse_primary_expression(tokens: &mut TokenIter) -> Result<Expression, String
     }
 }
 
-fn parse_binary_expression(lhs: Expression, tokens: &mut TokenIter, prec: u8, loc: Loc) -> Result<Expression, String> {
+fn parse_binary_expression(lhs: AstExpression, tokens: &mut TokenIter, prec: u8, loc: Loc) -> Result<AstExpression, String> {
     if let Some(binop_tok) = peek_binop(tokens) {
         // parse the right hand side of the binary expression
         let rhs = match parse_primary_expression(tokens) {
@@ -243,7 +243,7 @@ fn parse_binary_expression(lhs: Expression, tokens: &mut TokenIter, prec: u8, lo
             }
         };
         // create the binary expression node
-        let binary_expr = Expression::binary(binop_tok.kind, lhs, rhs, loc);
+        let binary_expr = AstExpression::binary(binop_tok.kind, lhs, rhs, loc);
         // check for more binary operators
         let binop_prec = binop_precedence(binop_tok.kind);
         if binop_prec > prec {

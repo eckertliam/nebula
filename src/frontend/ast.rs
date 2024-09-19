@@ -52,7 +52,7 @@ impl AstType {
         }
     }
 
-    pub fn array(elem: Box<AstType>, size: Expression, loc: Loc) -> Self {
+    pub fn array(elem: Box<AstType>, size: AstExpression, loc: Loc) -> Self {
         Self {
             loc,
             kind: TypeNode::Array(elem, size),
@@ -64,18 +64,18 @@ impl AstType {
 pub enum TypeNode {
     Base(String),
     Generic(String, Vec<AstType>),
-    Array(Box<AstType>, Expression),
+    Array(Box<AstType>, AstExpression),
     Function(Vec<AstType>, Box<AstType>),
     Tuple(Vec<AstType>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Expression {
+pub struct AstExpression {
     pub loc: Loc,
     pub kind: ExpressionNode,
 }
 
-impl Expression {
+impl AstExpression {
     pub fn identifier(name: String, loc: Loc) -> Self {
         Self {
             loc,
@@ -118,14 +118,14 @@ impl Expression {
         }
     }
 
-    pub fn array_literal(values: Vec<Expression>, loc: Loc) -> Self {
+    pub fn array_literal(values: Vec<AstExpression>, loc: Loc) -> Self {
         Self {
             loc,
             kind: ExpressionNode::Array(values),
         }
     }
 
-    pub fn binary(op: TokenKind, lhs: Expression, rhs: Expression, loc: Loc) -> Self {
+    pub fn binary(op: TokenKind, lhs: AstExpression, rhs: AstExpression, loc: Loc) -> Self {
         match op {
             TokenKind::Plus => Self {
                 loc,
@@ -190,22 +190,22 @@ pub enum ExpressionNode {
     Int(i64),
     Float(f64),
     String(String),
-    Array(Vec<Expression>),
+    Array(Vec<AstExpression>),
     True,
     False,
-    Add(Box<Expression>, Box<Expression>),
-    Sub(Box<Expression>, Box<Expression>),
-    Mul(Box<Expression>, Box<Expression>),
-    Div(Box<Expression>, Box<Expression>),
-    Mod(Box<Expression>, Box<Expression>),
-    Equal(Box<Expression>, Box<Expression>),
-    NotEqual(Box<Expression>, Box<Expression>),
-    Less(Box<Expression>, Box<Expression>),
-    LessEqual(Box<Expression>, Box<Expression>),
-    Greater(Box<Expression>, Box<Expression>),
-    GreaterEqual(Box<Expression>, Box<Expression>),
-    And(Box<Expression>, Box<Expression>),
-    Or(Box<Expression>, Box<Expression>),
+    Add(Box<AstExpression>, Box<AstExpression>),
+    Sub(Box<AstExpression>, Box<AstExpression>),
+    Mul(Box<AstExpression>, Box<AstExpression>),
+    Div(Box<AstExpression>, Box<AstExpression>),
+    Mod(Box<AstExpression>, Box<AstExpression>),
+    Equal(Box<AstExpression>, Box<AstExpression>),
+    NotEqual(Box<AstExpression>, Box<AstExpression>),
+    Less(Box<AstExpression>, Box<AstExpression>),
+    LessEqual(Box<AstExpression>, Box<AstExpression>),
+    Greater(Box<AstExpression>, Box<AstExpression>),
+    GreaterEqual(Box<AstExpression>, Box<AstExpression>),
+    And(Box<AstExpression>, Box<AstExpression>),
+    Or(Box<AstExpression>, Box<AstExpression>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -215,14 +215,14 @@ pub struct Statement {
 }
 
 impl Statement {
-    pub fn const_declaration(name: String, loc: Loc, _type: AstType, value: Expression) -> Self {
+    pub fn const_declaration(name: String, loc: Loc, _type: AstType, value: AstExpression) -> Self {
         Self {
             loc,
             kind: StatementNode::ConstDeclaration(ConstDeclaration { name, _type, value }),
         }
     }
 
-    pub fn let_declaration(name: String, loc: Loc, _type: AstType, value: Expression) -> Self {
+    pub fn let_declaration(name: String, loc: Loc, _type: AstType, value: AstExpression) -> Self {
         Self {
             loc,
             kind: StatementNode::LetDeclaration(LetDeclaration { name, _type, value }),
@@ -278,14 +278,14 @@ impl Statement {
         }
     }
 
-    pub fn expression(expression: Expression, loc: Loc) -> Self {
+    pub fn expression(expression: AstExpression, loc: Loc) -> Self {
         Self {
             loc,
             kind: StatementNode::Expression(expression),
         }
     }
 
-    pub fn return_statement(expression: Expression, loc: Loc) -> Self {
+    pub fn return_statement(expression: AstExpression, loc: Loc) -> Self {
         Self {
             loc,
             kind: StatementNode::Return(expression),
@@ -304,22 +304,22 @@ pub enum StatementNode {
     TraitDeclaration(TraitDeclaration),
     TypeDeclaration(TypeDeclaration),
     ImplDeclaration(ImplDeclaration),
-    Expression(Expression),
-    Return(Expression),
+    Expression(AstExpression),
+    Return(AstExpression),
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct LetDeclaration {
     pub name: String,
     pub _type: AstType,
-    pub value: Expression,
+    pub value: AstExpression,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConstDeclaration {
     pub name: String,
     pub _type: AstType,
-    pub value: Expression,
+    pub value: AstExpression,
 }
 
 #[derive(Debug, Clone, PartialEq)]
