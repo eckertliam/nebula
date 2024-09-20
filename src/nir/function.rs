@@ -1,10 +1,11 @@
-use crate::nir::instruction::Instruction;
+use std::collections::HashMap;
+
+use crate::nir::instruction::{Instruction, Block};
 use crate::nir::ty::Type;
 
-use super::instruction::Block;
-
 pub struct Function {
-    pub params: Vec<Type>,
+    pub params: HashMap<String, Type>,
+    pub locals: HashMap<String, Type>,
     pub ret: Type,
     pub blocks: Block,
 }

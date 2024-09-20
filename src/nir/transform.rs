@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::frontend::{AstType, EnumDeclaration, AstExpression, Program, StatementNode, StructDeclaration, TypeNode};
+use crate::frontend::{AstExpression, AstType, EnumDeclaration, ExpressionNode, Program, StatementNode, StructDeclaration, TypeNode};
 use crate::nir::context::Context;
 use crate::nir::ty::Type;
 
@@ -75,33 +75,130 @@ fn transform_ty(ty: AstType, context: &mut Context) -> Result<Type, String> {
                 }
             }
         }
-        TypeNode::Array(elem_ty, size_ast_expr) => match transform_ty(*elem_ty.clone(), context) {
-            // TODO: come up with a better way to handle this resolving the size_ast_expr into a constant
-            Ok(ty) => {
-                let err_msg = format!("size of array {:?} must be reducible to a constant at compile time", ty);
-                match transform_expression(size_ast_expr.clone(), context) {
-                    Ok(size_expr) => if let Some(reduced_expr) = size_expr.eval(&context) {
-                        match reduced_expr {
-                            Expression::Int(int_size) => if int_size >= 0 {
-                                Ok(Type::Array(Box::new(ty), int_size as u64))
-                            } else {
-                                Err(format!("size of array {:?} must be greater than or equal to 0", ty))
-                            }
-                            Expression::Unsigned(uint_size) => Ok(Type::Array(Box::new(ty), uint_size)),
-                            _ => Err(err_msg),
-                        }
-                    } else {
-                        Err(err_msg)
-                    }
-                    Err(e) => Err(e),
-                }
-            }
-            Err(e) => Err(e),
+        TypeNode::Array(elem_ty, size_ast_expr) => transform_array_ty(*elem_ty.clone(), size_ast_expr.clone(), context),
+        _ => {
+            // TODO: implement remaining types
+            unimplemented!("transforming type {:?} is not yet supported", ty);
         }
-        _ => unimplemented!("unknown type: {:?} not yet supported or does not exist", ty),
     }
 }
 
-fn transform_expression(expr: AstExpression, context: &mut Context) -> Result<Expression, String> {
-    unimplemented!()
+fn transform_expression(ast_expr: AstExpression, context: &mut Context) -> Result<Expression, String> {
+    let unfolded_res = match &ast_expr.kind {
+
+        ExpressionNode::Int(val) => Ok(Expression::Int(*val)),
+        ExpressionNode::Float(val) => Ok(Expression::Float(*val)),
+        ExpressionNode::True => Ok(Expression::Bool(true)),
+        ExpressionNode::False => Ok(Expression::Bool(false)),
+        ExpressionNode::String(val) => Ok(Expression::String(val.clone())),
+        ExpressionNode::Identifier(ident) => Ok(Expression::Ident(ident.clone())),
+        ExpressionNode::Add(lhs_ast, rhs_ast) => match (transform_expression(*lhs_ast.clone(), context), transform_expression(*rhs_ast.clone(), context)) {
+            (Ok(lhs), Ok(rhs)) => Ok(Expression::Add(Box::new(lhs), Box::new(rhs))),
+            (Err(e), _) => Err(e),
+            (_, Err(e)) => Err(e),
+        }
+        ExpressionNode::Sub(lhs_ast, rhs_ast) => match (transform_expression(*lhs_ast.clone(), context), transform_expression(*rhs_ast.clone(), context)) {
+            (Ok(lhs), Ok(rhs)) => Ok(Expression::Sub(Box::new(lhs), Box::new(rhs))),
+            (Err(e), _) => Err(e),
+            (_, Err(e)) => Err(e),
+        }
+        ExpressionNode::Mul(lhs_ast, rhs_ast) => match (transform_expression(*lhs_ast.clone(), context), transform_expression(*rhs_ast.clone(), context)) {
+            (Ok(lhs), Ok(rhs)) => Ok(Expression::Mul(Box::new(lhs), Box::new(rhs))),
+            (Err(e), _) => Err(e),
+            (_, Err(e)) => Err(e),
+        }
+        ExpressionNode::Div(lhs_ast, rhs_ast) => match (transform_expression(*lhs_ast.clone(), context), transform_expression(*rhs_ast.clone(), context)) {
+            (Ok(lhs), Ok(rhs)) => Ok(Expression::Div(Box::new(lhs), Box::new(rhs))),
+            (Err(e), _) => Err(e),
+            (_, Err(e)) => Err(e),
+        }
+        ExpressionNode::Mod(lhs_ast, rhs_ast) => match (transform_expression(*lhs_ast.clone(), context), transform_expression(*rhs_ast.clone(), context)) {
+            (Ok(lhs), Ok(rhs)) => Ok(Expression::Mod(Box::new(lhs), Box::new(rhs))),
+            (Err(e), _) => Err(e),
+            (_, Err(e)) => Err(e),
+        }
+        ExpressionNode::Equal(lhs_ast, rhs_ast) => match (transform_expression(*lhs_ast.clone(), context), transform_expression(*rhs_ast.clone(), context)) {
+            (Ok(lhs), Ok(rhs)) => Ok(Expression::Equal(Box::new(lhs), Box::new(rhs))),
+            (Err(e), _) => Err(e),
+            (_, Err(e)) => Err(e),
+        }
+        ExpressionNode::NotEqual(lhs_ast, rhs_ast) => match (transform_expression(*lhs_ast.clone(), context), transform_expression(*rhs_ast.clone(), context)) {
+            (Ok(lhs), Ok(rhs)) => Ok(Expression::NotEqual(Box::new(lhs), Box::new(rhs))),
+            (Err(e), _) => Err(e),
+            (_, Err(e)) => Err(e),
+        }
+        ExpressionNode::Less(lhs_ast, rhs_ast) => match (transform_expression(*lhs_ast.clone(), context), transform_expression(*rhs_ast.clone(), context)) {
+            (Ok(lhs), Ok(rhs)) => Ok(Expression::Less(Box::new(lhs), Box::new(rhs))),
+            (Err(e), _) => Err(e),
+            (_, Err(e)) => Err(e),
+        }
+        ExpressionNode::LessEqual(lhs_ast, rhs_ast) => match (transform_expression(*lhs_ast.clone(), context), transform_expression(*rhs_ast.clone(), context)) {
+            (Ok(lhs), Ok(rhs)) => Ok(Expression::LessEqual(Box::new(lhs), Box::new(rhs))),
+            (Err(e), _) => Err(e),
+            (_, Err(e)) => Err(e),
+        }
+        ExpressionNode::Greater(lhs_ast, rhs_ast) => match (transform_expression(*lhs_ast.clone(), context), transform_expression(*rhs_ast.clone(), context)) {
+            (Ok(lhs), Ok(rhs)) => Ok(Expression::Greater(Box::new(lhs), Box::new(rhs))),
+            (Err(e), _) => Err(e),
+            (_, Err(e)) => Err(e),
+        }
+        ExpressionNode::GreaterEqual(lhs_ast, rhs_ast) => match (transform_expression(*lhs_ast.clone(), context), transform_expression(*rhs_ast.clone(), context)) {
+            (Ok(lhs), Ok(rhs)) => Ok(Expression::GreaterEqual(Box::new(lhs), Box::new(rhs))),
+            (Err(e), _) => Err(e),
+            (_, Err(e)) => Err(e),
+        }
+        ExpressionNode::And(lhs_ast, rhs_ast) => match (transform_expression(*lhs_ast.clone(), context), transform_expression(*rhs_ast.clone(), context)) {
+            (Ok(lhs), Ok(rhs)) => Ok(Expression::And(Box::new(lhs), Box::new(rhs))),
+            (Err(e), _) => Err(e),
+            (_, Err(e)) => Err(e),
+        }
+        ExpressionNode::Or(lhs_ast, rhs_ast) => match (transform_expression(*lhs_ast.clone(), context), transform_expression(*rhs_ast.clone(), context)) {
+            (Ok(lhs), Ok(rhs)) => Ok(Expression::Or(Box::new(lhs), Box::new(rhs))),
+            (Err(e), _) => Err(e),
+            (_, Err(e)) => Err(e),
+        }
+        ExpressionNode::Array(exprs) => {
+            let mut new_exprs = Vec::new();
+            for expr in exprs {
+                match transform_expression(expr.clone(), context) {
+                    Ok(expr) => new_exprs.push(expr),
+                    Err(e) => return Err(e),
+                }
+            }
+            Ok(Expression::Array(new_exprs))
+        }
+    };
+    if let Ok(unfolded) = unfolded_res.clone() {
+        // try to fold the expression
+        if let Some(folded) = unfolded.fold() {
+            return Ok(folded)
+        }
+    }
+    unfolded_res
+}
+
+fn transform_array_ty(ast_elem_ty: AstType, size_ast_expr: AstExpression, context: &mut Context) -> Result<Type, String> {
+    let elem_ty = match transform_ty(ast_elem_ty, context) {
+        Ok(ty) => ty,
+        Err(e) => return Err(e),
+    };
+    // try to fold the size expression to a constant integer or unsigned
+    // first make the error message 
+    let const_size_expr_err = format!("array size expression {:?} could not be folded to a constant at {:?}", size_ast_expr, size_ast_expr.loc);
+    let size: u64 = if let Ok(unfolded_expr) = transform_expression(size_ast_expr.clone(), context) {
+        match unfolded_expr {
+            Expression::Int(size) => {
+                if size > 0 {
+                    size as u64
+                } else {
+                    return Err(format!("array size must be greater than 0, found {} at {:?}", size, size_ast_expr.loc));
+                }
+            }
+            Expression::Unsigned(size) => size,
+            _ => return Err(const_size_expr_err),
+        }
+    } else {
+        return Err(const_size_expr_err);
+    };
+    Ok(Type::Array(Box::new(elem_ty), size))
 }
