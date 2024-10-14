@@ -1,6 +1,8 @@
 use std::iter::Peekable;
 use std::str::Chars;
 
+use super::{Loc, Span};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TokenKind {
     Ident,
@@ -68,14 +70,14 @@ pub enum TokenKind {
 #[derive(Debug, Clone)]
 pub struct Token {
     pub kind: TokenKind,
-    pub loc: Loc,
+    pub span: Span,
     pub lexeme: Option<String>,
 }
 
-fn simple_token(kind: TokenKind, loc: Loc) -> Token {
+fn simple_token(kind: TokenKind, span: Span) -> Token {
     Token {
         kind,
-        loc,
+        span,
         lexeme: None,
     }
 }
@@ -122,7 +124,7 @@ fn tokenize_symbol(lead_ch: char, loc: &mut Loc, chars: &mut Peekable<Chars<'_>>
     let kind = check_keyword(&symbol);
     tokens.push(Token {
         kind,
-        loc: start_loc,
+        span: Span::new(start_loc, loc.clone()),
         lexeme: Some(symbol),
     });
 }
@@ -151,7 +153,7 @@ fn tokenize_number(lead_ch: char, loc: &mut Loc, chars: &mut Peekable<Chars<'_>>
     }
     tokens.push(Token {
         kind: TokenKind::Number,
-        loc: start_loc,
+        span: Span::new(start_loc, loc.clone()),
         lexeme: Some(num_str),
     });
 }
@@ -165,7 +167,7 @@ fn tokenize_string(loc: &mut Loc, chars: &mut Peekable<Chars<'_>>, tokens: &mut 
             '"' => {
                 tokens.push(Token {
                     kind: TokenKind::String,
-                    loc: start_loc,
+                    span: Span::new(start_loc, loc.clone()),
                     lexeme: Some(str_val),
                 });
                 return;
@@ -181,7 +183,7 @@ fn tokenize_string(loc: &mut Loc, chars: &mut Peekable<Chars<'_>>, tokens: &mut 
                         _ => {
                             let error_token = Token {
                                 kind: TokenKind::Error,
-                                loc: start_loc,
+                                span: Span::new(start_loc, loc.clone()),
                                 lexeme: Some(c.to_string()),
                             };
                             tokens.push(error_token);
@@ -191,7 +193,7 @@ fn tokenize_string(loc: &mut Loc, chars: &mut Peekable<Chars<'_>>, tokens: &mut 
                 } else {
                     let error_token = Token {
                         kind: TokenKind::Error,
-                        loc: start_loc,
+                        span: Span::new(start_loc, loc.clone()),
                         lexeme: Some("Expected character after '\\'".to_string()),
                     };
                     tokens.push(error_token);
@@ -203,7 +205,7 @@ fn tokenize_string(loc: &mut Loc, chars: &mut Peekable<Chars<'_>>, tokens: &mut 
     }
     let error_token = Token {
         kind: TokenKind::Error,
-        loc: start_loc,
+        span: Span::new(start_loc, loc.clone()),
         lexeme: Some("Unterminated string".to_string()),
     };
     tokens.push(error_token);
@@ -217,62 +219,62 @@ pub fn tokenize(src: &str) -> Vec<Token> {
     while let Some(c) = chars.next() {
         loc.column += 1;        
         match c {
-            '+' => tokens.push(simple_token(TokenKind::Plus, loc)),
+            '+' => tokens.push(simple_token(TokenKind::Plus, loc.into())),
             '-' => if let Some('>') = chars.peek() {
                 chars.next();
                 loc.column += 1;
-                tokens.push(simple_token(TokenKind::Arrow, loc));
+                tokens.push(simple_token(TokenKind::Arrow, loc.into()));
             } else {
-                tokens.push(simple_token(TokenKind::Minus, loc));
+                tokens.push(simple_token(TokenKind::Minus, loc.into()));
             }
-            '*' => tokens.push(simple_token(TokenKind::Star, loc)),
-            '/' => tokens.push(simple_token(TokenKind::Slash, loc)),
-            '%' => tokens.push(simple_token(TokenKind::Percent, loc)),
-            '^' => tokens.push(simple_token(TokenKind::Caret, loc)),
+            '*' => tokens.push(simple_token(TokenKind::Star, loc.into())),
+            '/' => tokens.push(simple_token(TokenKind::Slash, loc.into())),
+            '%' => tokens.push(simple_token(TokenKind::Percent, loc.into())),
+            '^' => tokens.push(simple_token(TokenKind::Caret, loc.into())),
             '=' => if let Some('=') = chars.peek() {
                 chars.next();
                 loc.column += 1;
-                tokens.push(simple_token(TokenKind::EqEq, loc));
+                tokens.push(simple_token(TokenKind::EqEq, loc.into()));
             } else {
-                tokens.push(simple_token(TokenKind::Eq, loc));
+                tokens.push(simple_token(TokenKind::Eq, loc.into()));
             }
             '!' => if let Some('=') = chars.peek() {
                 chars.next();
                 loc.column += 1;
-                tokens.push(simple_token(TokenKind::BangEq, loc));
+                tokens.push(simple_token(TokenKind::BangEq, loc.into()));
             } else {
-                tokens.push(simple_token(TokenKind::Bang, loc));
+                tokens.push(simple_token(TokenKind::Bang, loc.into()));
             }
             '<' => if let Some('=') = chars.peek() {
                 chars.next();
                 loc.column += 1;
-                tokens.push(simple_token(TokenKind::LtEq, loc));
+                tokens.push(simple_token(TokenKind::LtEq, loc.into()));
             } else {
-                tokens.push(simple_token(TokenKind::Lt, loc));
+                tokens.push(simple_token(TokenKind::Lt, loc.into()));
             }
             '>' => if let Some('=') = chars.peek() {
                 chars.next();
                 loc.column += 1;
-                tokens.push(simple_token(TokenKind::GtEq, loc));
+                tokens.push(simple_token(TokenKind::GtEq, loc.into()));
             } else {
-                tokens.push(simple_token(TokenKind::Gt, loc));
+                tokens.push(simple_token(TokenKind::Gt, loc.into()));
             }
-            '(' => tokens.push(simple_token(TokenKind::LParen, loc)),
-            ')' => tokens.push(simple_token(TokenKind::RParen, loc)),
-            '{' => tokens.push(simple_token(TokenKind::LBrace, loc)),
-            '}' => tokens.push(simple_token(TokenKind::RBrace, loc)),
-            '[' => tokens.push(simple_token(TokenKind::LBracket, loc)),
-            ']' => tokens.push(simple_token(TokenKind::RBracket, loc)),
-            ',' => tokens.push(simple_token(TokenKind::Comma, loc)),
-            '.' => tokens.push(simple_token(TokenKind::Dot, loc)),
+            '(' => tokens.push(simple_token(TokenKind::LParen, loc.into())),
+            ')' => tokens.push(simple_token(TokenKind::RParen, loc.into())),
+            '{' => tokens.push(simple_token(TokenKind::LBrace, loc.into())),
+            '}' => tokens.push(simple_token(TokenKind::RBrace, loc.into())),
+            '[' => tokens.push(simple_token(TokenKind::LBracket, loc.into())),
+            ']' => tokens.push(simple_token(TokenKind::RBracket, loc.into())),
+            ',' => tokens.push(simple_token(TokenKind::Comma, loc.into())),
+            '.' => tokens.push(simple_token(TokenKind::Dot, loc.into())),
             ':' => if let Some(':') = chars.peek() {
                 chars.next();
                 loc.column += 1;
-                tokens.push(simple_token(TokenKind::ColonColon, loc));
+                tokens.push(simple_token(TokenKind::ColonColon, loc.into()));
             } else {
-                tokens.push(simple_token(TokenKind::Colon, loc));
+                tokens.push(simple_token(TokenKind::Colon, loc.into()));
             }
-            ';' => tokens.push(simple_token(TokenKind::Semicolon, loc)),
+            ';' => tokens.push(simple_token(TokenKind::Semicolon, loc.into())),
             'a'..='z' | 'A'..='Z' | '_' => tokenize_symbol(c, &mut loc, &mut chars, &mut tokens),
             '0'..='9' => tokenize_number(c, &mut loc, &mut chars, &mut tokens),
             '"' => tokenize_string(&mut loc, &mut chars, &mut tokens),
@@ -285,7 +287,7 @@ pub fn tokenize(src: &str) -> Vec<Token> {
             _ => {
                 let error_token = Token {
                     kind: TokenKind::Error,
-                    loc,
+                    span: loc.into(),
                     lexeme: Some(c.to_string()),
                 };
                 tokens.push(error_token);
