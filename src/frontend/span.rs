@@ -28,7 +28,7 @@ impl Into<Span> for Loc {
 }
 
 // A span represents a range in the source file
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Span {
     // The start location of the span
     pub start: Loc,
