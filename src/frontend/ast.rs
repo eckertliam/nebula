@@ -1,4 +1,4 @@
-use crate::frontend::tokenizer::Loc;
+use super::span::{self, Loc, Span};
 
 use super::tokenizer::TokenKind;
 
@@ -11,374 +11,174 @@ impl Program {
     pub fn new() -> Self {
         Self { statements: Vec::new() }
     }
-
-    pub fn push(&mut self, statement: Statement) {
-        self.statements.push(statement);
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct AstType {
-    pub loc: Loc,
-    pub kind: TypeNode,
-}
-
-impl AstType {
-    pub fn base(name: String, loc: Loc) -> Self {
-        Self {
-            loc,
-            kind: TypeNode::Base(name),
-        }
-    }
-
-    pub fn generic(name: String, params: Vec<AstType>, loc: Loc) -> Self {
-        Self {
-            loc,
-            kind: TypeNode::Generic(name, params),
-        }
-    }
-
-    pub fn tuple(params: Vec<AstType>, loc: Loc) -> Self {
-        Self {
-            loc,
-            kind: TypeNode::Tuple(params),
-        }
-    }
-
-    pub fn function(params: Vec<AstType>, ret: Box<AstType>, loc: Loc) -> Self {
-        Self {
-            loc,
-            kind: TypeNode::Function(params, ret),
-        }
-    }
-
-    pub fn array(elem: Box<AstType>, size: AstExpression, loc: Loc) -> Self {
-        Self {
-            loc,
-            kind: TypeNode::Array(elem, size),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum TypeNode {
-    Base(String),
-    Generic(String, Vec<AstType>),
-    Array(Box<AstType>, AstExpression),
-    Function(Vec<AstType>, Box<AstType>),
-    Tuple(Vec<AstType>),
+pub enum Type {
+    // A basic type like `i8` or `bool` or a user defined type
+    Basic {
+        symbol: String,
+        span: Span,
+    },
+    // A generic type like `Vec<i8>` or `Ptr<str>`
+    Generic {
+        symbol: String,
+        args: Vec<Type>,
+        span: Span,
+    },
+    // A function type like `fn(i8) -> bool`
+    Function {
+        args: Vec<Type>,
+        ret: Box<Type>,
+        span: Span,
+    },
+    // A tuple type like `(i8, bool)`
+    Tuple {
+        types: Vec<Type>,
+        span: Span,
+    },
+    // An array type like `[[i8; 4]; 3]` or `[i8; 4]`
+    Array {
+        ty: Box<Type>,
+        size: Option<usize>,
+        span: Span,
+    },
+    Union {
+        types: Vec<Type>,
+        span: Span,
+    },
+    Intersection {
+        types: Vec<Type>,
+        span: Span,
+    },
+    // A type variable like `T` or `U` with optional bounds like `T: std::Add`
+    Variable {
+        name: String,
+        bounds: Vec<Type>,
+        span: Span,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct AstExpression {
-    pub loc: Loc,
-    pub kind: ExpressionNode,
-}
-
-impl AstExpression {
-    pub fn identifier(name: String, loc: Loc) -> Self {
-        Self {
-            loc,
-            kind: ExpressionNode::Identifier(name),
-        }
-    }
-
-    pub fn bool_literal(value: bool, loc: Loc) -> Self {
-        if value {
-            Self {
-                loc,
-                kind: ExpressionNode::True,
-            }
-        } else {
-            Self {
-                loc,
-                kind: ExpressionNode::False,
-            }
-        }
-    }
-
-    pub fn int_literal(value: i64, loc: Loc) -> Self {
-        Self {
-            loc,
-            kind: ExpressionNode::Int(value),
-        }
-    }
-
-    pub fn float_literal(value: f64, loc: Loc) -> Self {
-        Self {
-            loc,
-            kind: ExpressionNode::Float(value),
-        }
-    }
-
-    pub fn string_literal(value: String, loc: Loc) -> Self {
-        Self {
-            loc,
-            kind: ExpressionNode::String(value),
-        }
-    }
-
-    pub fn array_literal(values: Vec<AstExpression>, loc: Loc) -> Self {
-        Self {
-            loc,
-            kind: ExpressionNode::Array(values),
-        }
-    }
-
-    pub fn binary(op: TokenKind, lhs: AstExpression, rhs: AstExpression, loc: Loc) -> Self {
-        match op {
-            TokenKind::Plus => Self {
-                loc,
-                kind: ExpressionNode::Add(Box::new(lhs), Box::new(rhs)),
-            },
-            TokenKind::Minus => Self {
-                loc,
-                kind: ExpressionNode::Sub(Box::new(lhs), Box::new(rhs)),
-            },
-            TokenKind::Star => Self {
-                loc,
-                kind: ExpressionNode::Mul(Box::new(lhs), Box::new(rhs)),
-            },
-            TokenKind::Slash => Self {
-                loc,
-                kind: ExpressionNode::Div(Box::new(lhs), Box::new(rhs)),
-            },
-            TokenKind::Percent => Self {
-                loc,
-                kind: ExpressionNode::Mod(Box::new(lhs), Box::new(rhs)),
-            },
-            TokenKind::EqEq => Self {
-                loc,
-                kind: ExpressionNode::Equal(Box::new(lhs), Box::new(rhs)),
-            },
-            TokenKind::BangEq => Self {
-                loc,
-                kind: ExpressionNode::NotEqual(Box::new(lhs), Box::new(rhs)),
-            },
-            TokenKind::Lt => Self {
-                loc,
-                kind: ExpressionNode::Less(Box::new(lhs), Box::new(rhs)),
-            },
-            TokenKind::LtEq => Self {
-                loc,
-                kind: ExpressionNode::LessEqual(Box::new(lhs), Box::new(rhs)),
-            },
-            TokenKind::Gt => Self {
-                loc,
-                kind: ExpressionNode::Greater(Box::new(lhs), Box::new(rhs)),
-            },
-            TokenKind::GtEq => Self {
-                loc,
-                kind: ExpressionNode::GreaterEqual(Box::new(lhs), Box::new(rhs)),
-            },
-            TokenKind::And => Self {
-                loc,
-                kind: ExpressionNode::And(Box::new(lhs), Box::new(rhs)),
-            },
-            TokenKind::Or => Self {
-                loc,
-                kind: ExpressionNode::Or(Box::new(lhs), Box::new(rhs)),
-            },
-            _ => panic!("Invalid binary operator: {:?}", op),
-        }
-    }
+pub enum Expression {
+    Symbol {
+        symbol: String,
+        span: Span,
+    },
+    Int {
+        value: i64,
+        span: Span,
+    },
+    Float {
+        value: f64,
+        span: Span,
+    },
+    String {
+        value: String,
+        span: Span,
+    },
+    Bool {
+        value: bool,
+        span: Span,
+    },
+    Array {
+        elements: Vec<Expression>,
+        span: Span,
+    },
+    Tuple {
+        elements: Vec<Expression>,
+        span: Span,
+    },
+    Call {
+        callee: Box<Expression>,
+        args: Vec<Expression>,
+        span: Span,
+    },
+    Index {
+        owner: Box<Expression>,
+        index: Box<Expression>,
+        span: Span,
+    },
+    FieldAccess {
+        owner: Box<Expression>,
+        field: String,
+        span: Span,
+    },
+    Unary {
+        op: TokenKind,
+        operand: Box<Expression>,
+        span: Span,
+    },
+    Binary {
+        op: TokenKind,
+        lhs: Box<Expression>,
+        rhs: Box<Expression>,
+        span: Span,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum ExpressionNode {
-    Identifier(String),
-    Int(i64),
-    Float(f64),
-    String(String),
-    Array(Vec<AstExpression>),
-    True,
-    False,
-    Add(Box<AstExpression>, Box<AstExpression>),
-    Sub(Box<AstExpression>, Box<AstExpression>),
-    Mul(Box<AstExpression>, Box<AstExpression>),
-    Div(Box<AstExpression>, Box<AstExpression>),
-    Mod(Box<AstExpression>, Box<AstExpression>),
-    Equal(Box<AstExpression>, Box<AstExpression>),
-    NotEqual(Box<AstExpression>, Box<AstExpression>),
-    Less(Box<AstExpression>, Box<AstExpression>),
-    LessEqual(Box<AstExpression>, Box<AstExpression>),
-    Greater(Box<AstExpression>, Box<AstExpression>),
-    GreaterEqual(Box<AstExpression>, Box<AstExpression>),
-    And(Box<AstExpression>, Box<AstExpression>),
-    Or(Box<AstExpression>, Box<AstExpression>),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Statement {
-    pub loc: Loc,
-    pub kind: StatementNode,
-}
-
-impl Statement {
-    pub fn const_declaration(name: String, loc: Loc, _type: AstType, value: AstExpression) -> Self {
-        Self {
-            loc,
-            kind: StatementNode::ConstDeclaration(ConstDeclaration { name, _type, value }),
-        }
-    }
-
-    pub fn let_declaration(name: String, loc: Loc, _type: AstType, value: AstExpression) -> Self {
-        Self {
-            loc,
-            kind: StatementNode::LetDeclaration(LetDeclaration { name, _type, value }),
-        }
-    }
-
-    pub fn fn_declaration(name: String, loc: Loc, generic_params: Vec<GenericParam>, params: Vec<(String, AstType)>, _type: AstType, body: Vec<Statement>) -> Self {
-        Self {
-            loc,
-            kind: StatementNode::FnDeclaration(FnDeclaration { name, generic_params, params, _type, body }),
-        }
-    }
-
-    pub fn struct_declaration(name: String, loc: Loc, generic_params: Vec<GenericParam>, fields: Vec<(String, AstType)>) -> Self {
-        Self {
-            loc,
-            kind: StatementNode::StructDeclaration(StructDeclaration { name, generic_params, fields }),
-        }
-    }
-
-    pub fn enum_declaration(name: String, loc: Loc, generic_params: Vec<GenericParam>, variants: Vec<(String, Vec<AstType>)>) -> Self {
-        Self {
-            loc,
-            kind: StatementNode::EnumDeclaration(EnumDeclaration { name, generic_params, variants }),
-        }
-    }
-
-    pub fn type_declaration(name: String, loc: Loc, generic_params: Vec<GenericParam>, value: TypeDeclValue) -> Self {
-        Self {
-            loc,
-            kind: StatementNode::TypeDeclaration(TypeDeclaration { name, generic_params, value }),
-        }
-    }
-
-    pub fn trait_declaration(name: String, loc: Loc, required_impls: Vec<AstType>, generic_params: Vec<GenericParam>, methods: Vec<FnDeclaration>) -> Self {
-        Self {
-            loc,
-            kind: StatementNode::TraitDeclaration(TraitDeclaration { name, required_impls, generic_params, methods }),
-        }
-    }
-
-    pub fn impl_declaration(_trait: Option<AstType>, _type: AstType, methods: Vec<FnDeclaration>, loc: Loc) -> Self {
-        Self {
-            loc,
-            kind: StatementNode::ImplDeclaration(ImplDeclaration { _trait, _type, methods }),
-        }
-    }
-
-    pub fn block(statements: Vec<Statement>, loc: Loc) -> Self {
-        Self {
-            loc,
-            kind: StatementNode::Block(statements),
-        }
-    }
-
-    pub fn expression(expression: AstExpression, loc: Loc) -> Self {
-        Self {
-            loc,
-            kind: StatementNode::Expression(expression),
-        }
-    }
-
-    pub fn return_statement(expression: AstExpression, loc: Loc) -> Self {
-        Self {
-            loc,
-            kind: StatementNode::Return(expression),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum StatementNode {
-    Block(Vec<Statement>),
-    LetDeclaration(LetDeclaration),
-    ConstDeclaration(ConstDeclaration),
-    FnDeclaration(FnDeclaration),
-    StructDeclaration(StructDeclaration),
-    EnumDeclaration(EnumDeclaration),
-    TraitDeclaration(TraitDeclaration),
-    TypeDeclaration(TypeDeclaration),
-    ImplDeclaration(ImplDeclaration),
-    Expression(AstExpression),
-    Return(AstExpression),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct LetDeclaration {
-    pub name: String,
-    pub _type: AstType,
-    pub value: AstExpression,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct ConstDeclaration {
-    pub name: String,
-    pub _type: AstType,
-    pub value: AstExpression,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct GenericParam {
-    pub type_var: String,
-    pub bounds: Vec<AstType>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct FnDeclaration {
-    pub name: String,
-    pub generic_params: Vec<GenericParam>,
-    pub params: Vec<(String, AstType)>,
-    pub _type: AstType,
-    pub body: Vec<Statement>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct TypeDeclaration {
-    pub name: String,
-    pub generic_params: Vec<GenericParam>,
-    pub value: TypeDeclValue,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum TypeDeclValue {
-    // A | B | C
-    Union(Vec<TypeDeclaration>),
-    // A & B & C
-    Intersection(Vec<TypeDeclaration>),
-    // A = B
-    Alias(AstType),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct StructDeclaration {
-    pub name: String,
-    pub generic_params: Vec<GenericParam>,
-    pub fields: Vec<(String, AstType)>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct EnumDeclaration {
-    pub name: String,
-    pub generic_params: Vec<GenericParam>,
-    pub variants: Vec<(String, Vec<AstType>)>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct TraitDeclaration {
-    pub name: String,
-    pub required_impls: Vec<AstType>,
-    pub generic_params: Vec<GenericParam>,
-    pub methods: Vec<FnDeclaration>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct ImplDeclaration {
-    pub _trait: Option<AstType>,
-    pub _type: AstType,
-    pub methods: Vec<FnDeclaration>,
+pub enum Statement {
+    Block {
+        statements: Vec<Statement>,
+        span: Span,
+    },
+    LetDecl {
+        name: String,
+        ty: Option<Type>,
+        value: Expression,
+        span: Span,
+    },
+    ConstDecl {
+        name: String,
+        ty: Option<Type>,
+        value: Expression,
+        span: Span,
+    },
+    FnDecl {
+        name: String,
+        generics: Vec<Type>,
+        args: Vec<(String, Type)>,
+        ret: Type,
+        body: Vec<Statement>,
+        span: Span,
+    },
+    TypeAlias {
+        name: String,
+        generics: Vec<Type>,
+        ty: Type,
+        span: Span,
+    },
+    EnumDecl {
+        name: String,
+        generics: Vec<Type>,
+        variants: Vec<(String, Vec<Type>)>,
+        span: Span,
+    },
+    StructDecl {
+        name: String,
+        generics: Vec<Type>,
+        fields: Vec<(String, Type)>,
+        span: Span,
+    },
+    TraitDecl {
+        name: String,
+        // traits this trait requires
+        trait_bounds: Vec<Type>,
+        generics: Vec<Type>,
+        constants: Vec<(String, Type, Option<Expression>)>,
+        // fields the trait requires implementors to have
+        required: Vec<(String, Type)>,
+        // fields that the trait gives to implementors
+        given: Vec<Statement>,
+        span: Span,
+    },
+    ImplBlock {
+        // if this is an impl block for a trait
+        _trait: Option<Type>,
+        _type: Type,
+        generics: Vec<Type>,
+        fields: Vec<Statement>,
+        span: Span,
+    },
 }
