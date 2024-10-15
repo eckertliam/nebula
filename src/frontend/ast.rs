@@ -24,12 +24,6 @@ pub enum Type {
         symbol: String,
         span: Span,
     },
-    // A generic type like `Vec<i8>` or `Ptr<str>`
-    Generic {
-        symbol: String,
-        args: Vec<Type>,
-        span: Span,
-    },
     // A function type like `fn(i8) -> bool`
     Function {
         args: Vec<Type>,
@@ -47,26 +41,15 @@ pub enum Type {
         size: Option<Expression>,
         span: Span,
     },
-    Union {
-        types: Vec<Type>,
-        span: Span,
-    },
-    Intersection {
-        types: Vec<Type>,
-        span: Span,
-    },
 }
 
 impl Type {
     pub fn span(&self) -> &Span {
         match self {
             Type::Basic { span, .. } => span,
-            Type::Generic { span, .. } => span,
             Type::Function { span, .. } => span,
             Type::Tuple { span, .. } => span,
             Type::Array { span, .. } => span,
-            Type::Union { span, .. } => span,
-            Type::Intersection { span, .. } => span,
         }
     }
 }
@@ -174,7 +157,6 @@ pub enum Statement {
     },
     FnDecl {
         name: String,
-        generics: Vec<GenericParam>,
         args: Vec<(String, Type)>,
         ret: Type,
         body: Vec<Statement>,
@@ -186,38 +168,21 @@ pub enum Statement {
     },
     TypeAlias {
         name: String,
-        generics: Vec<GenericParam>,
         ty: Type,
         span: Span,
     },
     EnumDecl {
         name: String,
-        generics: Vec<GenericParam>,
         variants: Vec<(String, Vec<Type>)>,
         span: Span,
     },
     StructDecl {
         name: String,
-        generics: Vec<GenericParam>,
         fields: Vec<(String, Type)>,
         span: Span,
     },
-    TraitDecl {
-        name: String,
-        // traits this trait requires
-        trait_bounds: Vec<Type>,
-        generics: Vec<GenericParam>,
-        // fields the trait requires implementors to have
-        required: Vec<(String, Type)>,
-        // fields that the trait gives to implementors
-        given: Vec<Statement>,
-        span: Span,
-    },
     ImplBlock {
-        // if this is an impl block for a trait
-        _trait: Option<Type>,
         _type: Type,
-        generics: Vec<GenericParam>,
         fields: Vec<Statement>,
         span: Span,
     },
@@ -238,7 +203,6 @@ impl Statement {
             Statement::TypeAlias { span, .. } => span,
             Statement::EnumDecl { span, .. } => span,
             Statement::StructDecl { span, .. } => span,
-            Statement::TraitDecl { span, .. } => span,
             Statement::ImplBlock { span, .. } => span,
             Statement::Expression { span, .. } => span,
         }

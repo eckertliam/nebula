@@ -1,7 +1,7 @@
 use std::{fmt::Display, iter::Peekable};
 use std::str::Chars;
 
-use super::{Loc, Span};
+use crate::frontend::span::{Loc, Span};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TokenKind {
@@ -54,7 +54,6 @@ pub enum TokenKind {
     Type,
     Struct,
     Enum,
-    Trait,
     Impl,
     Import,
     From,
@@ -115,7 +114,6 @@ impl Display for TokenKind {
             TokenKind::Type => "Type",
             TokenKind::Struct => "Struct",
             TokenKind::Enum => "Enum",
-            TokenKind::Trait => "Trait",
             TokenKind::Impl => "Impl",
             TokenKind::Import => "Import",
             TokenKind::From => "From",
@@ -163,7 +161,6 @@ fn check_keyword(symbol: &str) -> TokenKind {
         "type" => TokenKind::Type,
         "struct" => TokenKind::Struct,
         "enum" => TokenKind::Enum,
-        "trait" => TokenKind::Trait,
         "impl" => TokenKind::Impl,
         "import" => TokenKind::Import,
         "from" => TokenKind::From,

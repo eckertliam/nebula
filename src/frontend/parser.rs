@@ -62,7 +62,6 @@ fn parse_statement(tokens: &mut TokenIter, start_loc: Loc) -> Result<Statement, 
         TokenKind::Fn => parse_fn_decl(tokens, start_loc),
         TokenKind::Struct => parse_struct_decl(tokens, start_loc),
         TokenKind::Enum => parse_enum_decl(tokens, start_loc),
-        TokenKind::Trait => parse_trait_decl(tokens, start_loc),
         TokenKind::Type => parse_type_decl(tokens, start_loc),
         TokenKind::Ident | TokenKind::Number | TokenKind::String | TokenKind::True | TokenKind::False | TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => {
             let expr = match parse_expression(tokens) {
@@ -100,47 +99,11 @@ fn parse_type(tokens: &mut TokenIter) -> Result<Type, String> {
     if let Some(token) = tokens.next() {
         let start_loc = token.span.start;
         match token.kind {
-            TokenKind::Ident => {
-                let type_ident = token;
-                if let Some(peeked) = tokens.peek() {
-                    if peeked.kind == TokenKind::Lt {
-                        // parse generic type
-                        tokens.next();
-                        let mut generic_args = Vec::new();
-                        loop {
-                            let arg = match parse_type(tokens) {
-                                Ok(t) => t,
-                                Err(e) => {
-                                    return Err(e);
-                                }
-                            };
-                            generic_args.push(arg);
-                            match tokens.peek() {
-                                Some(token) => {
-                                    if token.kind == TokenKind::Comma {
-                                        tokens.next();
-                                    } else {
-                                        break;
-                                    }
-                                }
-                                None => break,
-                            }
-                        }
-                        if let Err(e) = expect_kind(tokens, TokenKind::Gt) {
-                            return Err(e);
-                        }
-                        return Ok(Type::Generic { 
-                            symbol: type_ident.lexeme.unwrap(), 
-                            args: generic_args, 
-                            span: Span::new(start_loc, tokens.peek().unwrap().span.start) 
-                        });
-                    } 
-                }
-                return Ok(Type::Basic { 
-                    symbol: type_ident.lexeme.unwrap(), 
-                    span: Span::new(start_loc, tokens.peek().unwrap().span.start)
-                });
-            }
+            TokenKind::Ident => if let Some(lexeme) = token.lexeme {
+                Ok(Type::Basic { symbol: lexeme.to_string(), span: token.span })
+            } else {
+                Err(format!("Error: Identifier token is missing lexeme at {}", token.span))
+            },
             TokenKind::LParen => {
                 // parse tuple or function type
                 let mut types = Vec::new();
@@ -481,36 +444,6 @@ fn parse_fn_decl(tokens: &mut TokenIter, start_loc: Loc) -> Result<Statement, St
     } else {
         return Err(format!("Error: Expected identifier after fn at {}", start_loc));
     };
-    // check for generics
-    let mut generics = Vec::new();
-    if expect_kind(tokens, TokenKind::Lt).is_ok() {
-        loop {
-            let gen_param = parse_generic_param(tokens);
-            match gen_param {
-                Ok(param) => generics.push(param),
-                Err(e) => {
-                    return Err(e);
-                }
-            }
-            // if there is a comma keep parsing generics
-            match tokens.peek() {
-                Some(token) => {
-                    if token.kind == TokenKind::Comma {
-                        tokens.next();
-                    } else {
-                        break;
-                    }
-                }
-                None => break,
-            }
-        }
-    }
-    // expect a closing angle bracket if there were generics
-    if !generics.is_empty() {
-        if let Err(e) = expect_kind(tokens, TokenKind::Gt) {
-            return Err(e);
-        }
-    }
     // parse params
     let mut args = Vec::new();
     if let Err(e) = expect_kind(tokens, TokenKind::LParen) {
@@ -590,46 +523,7 @@ fn parse_fn_decl(tokens: &mut TokenIter, start_loc: Loc) -> Result<Statement, St
             return Err(e);
         }
     };
-    return Ok(Statement::FnDecl { name, generics, args, ret, body, span: Span::new(start_loc, end_loc) });
-}
-
-fn parse_generic_param(tokens: &mut TokenIter) -> Result<GenericParam, String> {
-    let type_var_token = match expect_kind(tokens, TokenKind::Ident) {
-        Ok(token) => token,
-        Err(e) => return Err(e),
-    };
-    let name = if let Some(lexeme) = type_var_token.lexeme {
-        lexeme.to_string()
-    } else {
-        return Err(format!("Error: Generic parameter is missing lexeme at {}", type_var_token.span));
-    };
-    // check for a colon
-    if let Ok(_) = expect_kind(tokens, TokenKind::Colon) {
-        let start_loc = type_var_token.span.start;
-        let mut bounds = Vec::new();
-        loop {
-            match tokens.peek() {
-                Some(token) => {
-                    match token.kind {
-                        TokenKind::Comma => break,
-                        _ => match parse_type(tokens) {
-                            Ok(t) => bounds.push(t),
-                            Err(e) => return Err(e),
-                        }
-                    }
-                }
-                None => break,
-            }
-        }
-        let end_loc = if let Some(bound_end) = bounds.last() {
-            bound_end.span().end
-        } else {
-            return Err(format!("Error: Expected type bounds after colon at {}", type_var_token.span));
-        };
-        return Ok(GenericParam { name, bounds, span: Span::new(start_loc, end_loc) });
-    } else {
-        return Ok(GenericParam { name, bounds: Vec::new(), span: type_var_token.span });
-    }
+    return Ok(Statement::FnDecl { name, args, ret, body, span: Span::new(start_loc, end_loc) });
 }
 
 fn parse_struct_decl(tokens: &mut TokenIter, start_loc: Loc) -> Result<Statement, String> {
@@ -642,26 +536,6 @@ fn parse_struct_decl(tokens: &mut TokenIter, start_loc: Loc) -> Result<Statement
         }
         Err(e) => return Err(e),
     };
-    let mut generics = Vec::new();
-    if expect_kind(tokens, TokenKind::Lt).is_ok() {
-        loop {
-            let gen_param = parse_generic_param(tokens);
-            match gen_param {
-                Ok(param) => generics.push(param),
-                Err(e) => return Err(e),
-            }
-            match tokens.peek() {
-                Some(token) => {
-                    if token.kind == TokenKind::Comma {
-                        tokens.next();
-                    } else {
-                        break;
-                    }
-                }
-                None => break,
-            }
-        }
-    }
     let mut fields = Vec::new();
     if let Err(e) = expect_kind(tokens, TokenKind::LBrace) {
        return Err(e);
@@ -708,7 +582,7 @@ fn parse_struct_decl(tokens: &mut TokenIter, start_loc: Loc) -> Result<Statement
         Ok(token) => token.span.end,
         Err(e) => return Err(e),
     };
-    Ok(Statement::StructDecl { name, generics, fields, span: Span::new(start_loc, end_loc) })
+    Ok(Statement::StructDecl { name, fields, span: Span::new(start_loc, end_loc) })
 }
 
 fn parse_enum_decl(tokens: &mut TokenIter, start_loc: Loc) -> Result<Statement, String> {
@@ -721,31 +595,6 @@ fn parse_enum_decl(tokens: &mut TokenIter, start_loc: Loc) -> Result<Statement, 
         }
         Err(e) => return Err(e),
     };
-    let mut generics = Vec::new();
-    if expect_kind(tokens, TokenKind::Lt).is_ok() {
-        loop {
-            let gen_param = parse_generic_param(tokens);
-            match gen_param {
-                Ok(param) => generics.push(param),
-                Err(e) => return Err(e),
-            }
-            match tokens.peek() {
-                Some(token) => {
-                    if token.kind == TokenKind::Comma {
-                        tokens.next();
-                    } else {
-                        break;
-                    }
-                }
-                None => break,
-            }
-        }
-    }
-    if !generics.is_empty() {
-        if let Err(e) = expect_kind(tokens, TokenKind::Gt) {
-            return Err(e);
-        }
-    }
     let mut variants = Vec::new();
     // consume the opening brace
     if let Err(e) = expect_kind(tokens, TokenKind::LBrace) {
@@ -794,13 +643,7 @@ fn parse_enum_decl(tokens: &mut TokenIter, start_loc: Loc) -> Result<Statement, 
         Ok(token) => token.span.end,
         Err(e) => return Err(e),
     };
-    Ok(Statement::EnumDecl { name, generics, variants, span: Span::new(start_loc, end_loc) })
-}
-
-fn parse_trait_decl(tokens: &mut TokenIter, start_loc: Loc) -> Result<Statement, String> {
-    // TODO: parse trait declarations
-    tokens.next();
-    unimplemented!("Trait declaration parsing is not implemented yet");
+    Ok(Statement::EnumDecl { name, variants, span: Span::new(start_loc, end_loc) })
 }
 
 fn parse_type_decl(tokens: &mut TokenIter, start_loc: Loc) -> Result<Statement, String> {
