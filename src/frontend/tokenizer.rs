@@ -1,4 +1,4 @@
-use std::iter::Peekable;
+use std::{fmt::Display, iter::Peekable};
 use std::str::Chars;
 
 use super::{Loc, Span};
@@ -65,6 +65,69 @@ pub enum TokenKind {
     // Special
     Eof,
     Error,
+}
+
+impl Display for TokenKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            TokenKind::Ident => "Ident",
+            TokenKind::Number => "Number",
+            TokenKind::String => "String",
+            TokenKind::Plus => "Plus",
+            TokenKind::Minus => "Minus",
+            TokenKind::Star => "Star",
+            TokenKind::Slash => "Slash",
+            TokenKind::Percent => "Percent",
+            TokenKind::Caret => "Caret",
+            TokenKind::Eq => "Eq",
+            TokenKind::EqEq => "EqEq",
+            TokenKind::Bang => "Bang",
+            TokenKind::BangEq => "BangEq",
+            TokenKind::Lt => "Lt",
+            TokenKind::LtEq => "LtEq",
+            TokenKind::Gt => "Gt",
+            TokenKind::GtEq => "GtEq",
+            TokenKind::LParen => "LParen",
+            TokenKind::RParen => "RParen",
+            TokenKind::LBrace => "LBrace",
+            TokenKind::RBrace => "RBrace",
+            TokenKind::LBracket => "LBracket",
+            TokenKind::RBracket => "RBracket",
+            TokenKind::Comma => "Comma",
+            TokenKind::Dot => "Dot",
+            TokenKind::Colon => "Colon",
+            TokenKind::ColonColon => "ColonColon",
+            TokenKind::Semicolon => "Semicolon",
+            TokenKind::Arrow => "Arrow",
+            TokenKind::FatArrow => "FatArrow",
+            TokenKind::Const => "Const",
+            TokenKind::Let => "Let",
+            TokenKind::If => "If",
+            TokenKind::Else => "Else",
+            TokenKind::Match => "Match",
+            TokenKind::While => "While",
+            TokenKind::For => "For",
+            TokenKind::In => "In",
+            TokenKind::Fn => "Fn",
+            TokenKind::Return => "Return",
+            TokenKind::True => "True",
+            TokenKind::False => "False",
+            TokenKind::Type => "Type",
+            TokenKind::Struct => "Struct",
+            TokenKind::Enum => "Enum",
+            TokenKind::Trait => "Trait",
+            TokenKind::Impl => "Impl",
+            TokenKind::Import => "Import",
+            TokenKind::From => "From",
+            TokenKind::As => "As",
+            TokenKind::Export => "Export",
+            TokenKind::And => "And",
+            TokenKind::Or => "Or",
+            TokenKind::Eof => "Eof",
+            TokenKind::Error => "Error",
+        };
+        write!(f, "{}", s)
+    }
 }
 
 #[derive(Debug, Clone)]

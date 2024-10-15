@@ -44,7 +44,7 @@ pub enum Type {
     // An array type like `[[i8; 4]; 3]` or `[i8; 4]`
     Array {
         ty: Box<Type>,
-        size: Option<usize>,
+        size: Option<Expression>,
         span: Span,
     },
     Union {
@@ -55,14 +55,21 @@ pub enum Type {
         types: Vec<Type>,
         span: Span,
     },
-    // A type variable like `T` or `U` with optional bounds like `T: std::Add`
-    Variable {
-        name: String,
-        bounds: Vec<Type>,
-        span: Span,
-    },
 }
 
+impl Type {
+    pub fn span(&self) -> &Span {
+        match self {
+            Type::Basic { span, .. } => span,
+            Type::Generic { span, .. } => span,
+            Type::Function { span, .. } => span,
+            Type::Tuple { span, .. } => span,
+            Type::Array { span, .. } => span,
+            Type::Union { span, .. } => span,
+            Type::Intersection { span, .. } => span,
+        }
+    }
+}
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
     Symbol {
@@ -141,6 +148,13 @@ impl Expression {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct GenericParam {
+    pub name: String,
+    pub bounds: Vec<Type>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
     Block {
         statements: Vec<Statement>,
@@ -160,7 +174,7 @@ pub enum Statement {
     },
     FnDecl {
         name: String,
-        generics: Vec<Type>,
+        generics: Vec<GenericParam>,
         args: Vec<(String, Type)>,
         ret: Type,
         body: Vec<Statement>,
@@ -172,19 +186,19 @@ pub enum Statement {
     },
     TypeAlias {
         name: String,
-        generics: Vec<Type>,
+        generics: Vec<GenericParam>,
         ty: Type,
         span: Span,
     },
     EnumDecl {
         name: String,
-        generics: Vec<Type>,
+        generics: Vec<GenericParam>,
         variants: Vec<(String, Vec<Type>)>,
         span: Span,
     },
     StructDecl {
         name: String,
-        generics: Vec<Type>,
+        generics: Vec<GenericParam>,
         fields: Vec<(String, Type)>,
         span: Span,
     },
@@ -192,8 +206,7 @@ pub enum Statement {
         name: String,
         // traits this trait requires
         trait_bounds: Vec<Type>,
-        generics: Vec<Type>,
-        constants: Vec<(String, Type, Option<Expression>)>,
+        generics: Vec<GenericParam>,
         // fields the trait requires implementors to have
         required: Vec<(String, Type)>,
         // fields that the trait gives to implementors
@@ -204,7 +217,7 @@ pub enum Statement {
         // if this is an impl block for a trait
         _trait: Option<Type>,
         _type: Type,
-        generics: Vec<Type>,
+        generics: Vec<GenericParam>,
         fields: Vec<Statement>,
         span: Span,
     },
