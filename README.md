@@ -1,45 +1,5 @@
 # Nebula
 
-## 🚧 WIP 🚧
+## Nebula is a work in progress
 
-Nebula is a learning project I am working on.
-Nebula is a programming language influenced by Rust and TypeScript.
-It is a statically typed, compiled language, with a syntax similar to Rust.
-Where Nebula differs from Rust is in its memory management model.
-Nebula will use a runtime garbage collector.
-This allows for a more flexible and expressive language without a borrow checker stepping in the way.
-
-## Roadmap
-
-This is a rough roadmap of the features I want to implement in Nebula.
-
-- [ ] Give the AST full parser coverage:
-    - [ ] Comments
-    - [x] Arithmetic expressions
-    - [x] Logical expressions
-    - [x] Comparison expressions
-    - [ ] Assignment expressions
-    - [ ] Function calls
-    - [ ] Struct literals
-    - [ ] Enum literals
-    - [ ] Block expressions
-    - [ ] Control flow
-    - [x] Function declarations
-    - [x] Variable declarations (const and let)
-    - [ ] Type declarations
-    - [x] Struct declarations
-    - [x] Enum declarations
-    - [ ] Trait declarations
-    - [ ] Impl blocks
-    - [ ] Export statements
-    - [ ] Import statements
-- [ ] Implement NIR (Nebula Intermediate Representation)
-- [ ] Implement transformation from AST to NIR
-- [ ] Implement type checking
-- [ ] Implement optimization passes
-- [ ] Implement code generation
-- [ ] Implement runtime garbage collector
-- [ ] Implement runtime
-- [ ] Implement standard library
-- [ ] Implement build system
-- [ ] Implement package manager?
+Nebula is a simple language designed from first principles for educational purposes. Nebula takes syntactic inspiration from Rust, C/C++, and TypeScript. The language semantics attempt to find a balance between the simplicity of TypeScript and the power of Rust. This means no poisoning the type system with `null` or `undefined` as well as no `unsafe` code blocks. Nebula also differs from Rust in that it is garbage collected (plans to be) and has a more flexible ownership model (no borrow checker yelling at you).

@@ -1,4 +1,2 @@
-mod span;
+mod loc;
 mod tokenizer;
-mod parser;
-pub(crate) mod ast;
