@@ -1,2 +1,1 @@
-mod loc;
-mod tokenizer;
+mod scanner;
