@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TokenKind {
     LeftParen,
     RightParen,
@@ -48,12 +48,20 @@ pub enum TokenKind {
     // Special
     Eof,
     Error,
+    Empty,
 }
 
-pub struct Token {
+#[derive(Debug, Clone, Copy)]
+pub struct Token<'a> {
     pub kind: TokenKind,
-    pub lexeme: String,
+    pub lexeme: &'a str,
     pub line: usize,
+}
+
+impl<'a> Default for Token<'a> {
+    fn default() -> Self {
+        Self { kind: TokenKind::Empty, lexeme: "", line: 0 }
+    }
 }
 
 pub struct Scanner<'a> {
@@ -87,18 +95,18 @@ impl<'a> Scanner<'a> {
         ch
     }
 
-    fn make_token(&self, kind: TokenKind) -> Token {
+    fn make_token(&self, kind: TokenKind) -> Token<'a> {
         Token {
             kind,
-            lexeme: self.source[self.start..self.current].to_string(),
+            lexeme: &self.source[self.start..self.current],
             line: self.line,
         }
     }
 
-    fn error_token(&self, message: String) -> Token {
+    fn error_token(&self, message: &'static str) -> Token<'a> {
         Token {
             kind: TokenKind::Error,
-            lexeme: message,
+            lexeme: &message,
             line: self.line,
         }
     }
@@ -116,7 +124,7 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    fn scan_identifier(&mut self) -> Token {
+    fn scan_identifier(&mut self) -> Token<'a> {
         while let Some(ch) = self.peek() {
             if ch.is_alphanumeric() || ch == '_' {
                 self.advance();
@@ -125,8 +133,8 @@ impl<'a> Scanner<'a> {
             }
         }
         
-        let lexeme = self.source[self.start..self.current].to_string();
-        let kind = match lexeme.as_str() {
+        let lexeme = &self.source[self.start..self.current];
+        let kind = match lexeme{
             "and" => TokenKind::And,
             "or" => TokenKind::Or,
             "if" => TokenKind::If,
@@ -153,7 +161,7 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    fn scan_number(&mut self) -> Token {
+    fn scan_number(&mut self) -> Token<'a> {
         while let Some(ch) = self.peek() {
             if ch.is_digit(10) {
                 self.advance();
@@ -181,7 +189,7 @@ impl<'a> Scanner<'a> {
         self.make_token(TokenKind::Number)
     }
 
-    fn scan_string(&mut self) -> Token {
+    fn scan_string(&mut self) -> Token<'a> {
         while let Some(ch) = self.advance() {
             if ch == '"' {
                 break;
@@ -194,7 +202,7 @@ impl<'a> Scanner<'a> {
         self.make_token(TokenKind::String)
     }
 
-    pub fn scan_token(&mut self) -> Token {
+    pub fn scan_token(&mut self) -> Token<'a> {
         self.skip_whitespace();
 
         if let Some(ch) = self.advance() {
@@ -256,21 +264,10 @@ impl<'a> Scanner<'a> {
                 '"' => self.scan_string(),
                 c if c.is_alphabetic() || c == '_' => self.scan_identifier(),
                 c if c.is_digit(10) => self.scan_number(),
-                _ => self.error_token(format!("Unexpected character: {}", ch)),
+                _ => self.error_token("Unexpected character"),
             }
         } else {
             self.make_token(TokenKind::Eof)
         }
-    }
-
-    pub fn scan_tokens(&mut self) -> Vec<Token> {
-        let mut tokens = Vec::new();
-        let mut token = self.scan_token();
-        while token.kind != TokenKind::Eof {
-            tokens.push(token);
-            token = self.scan_token();
-        }
-        tokens.push(token);
-        tokens
     }
 }
