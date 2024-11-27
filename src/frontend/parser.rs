@@ -102,6 +102,20 @@ fn expression<'a>(parser: &mut Parser<'a>) -> Result<Expression, ()> {
     parse_precedence(parser, Precedence::Assignment)
 }
 
+fn group_expression<'a>(parser: &mut Parser<'a>) -> Result<Expression, ()> {
+    // parse the expression inside the parentheses
+    let expr = expression(parser)?;
+    // consume the closing parenthesis
+    consume(parser, TokenKind::RightParen, "Expected a closing parenthesis.");
+    Ok(expr)
+}
+
+fn call_expression<'a>(parser: &mut Parser<'a>, callee: Expression) -> Result<Expression, ()> {
+    // TODO: implement argument parsing
+    let args = todo!();
+    Ok(Expression::new_call(callee, args, parser.previous.line))
+}
+
 fn number_expression<'a>(parser: &mut Parser<'a>) -> Result<Expression, ()> {
     let line = parser.previous.line;
     // determine if the number is an integer or a float
@@ -286,6 +300,11 @@ fn get_expr_parse_rule<'a>(kind: TokenKind) -> ExpressionParseRule<'a> {
             prefix: Some(identifier_expression),
             infix: None,
             precedence: Precedence::Primary,
+        },
+        TokenKind::LeftParen => ExpressionParseRule {
+            prefix: Some(group_expression),
+            infix: Some(call_expression),
+            precedence: Precedence::Call,
         },
         _ => unreachable!(),
     }
