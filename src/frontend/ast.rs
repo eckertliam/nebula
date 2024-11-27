@@ -35,6 +35,8 @@ pub enum Expression {
     Unary(UnaryExpr),
     Integer(Integer),
     Float(Float),
+    Identifier(Identifier),
+    Call(CallExpr),
 }
 
 impl Expression {
@@ -57,6 +59,14 @@ impl Expression {
 
     pub fn new_float(value: f64, line: usize) -> Self {
         Self::Float(Float { value, line })
+    }
+
+    pub fn new_identifier(name: String, line: usize) -> Self {
+        Self::Identifier(Identifier { name, line })
+    }
+
+    pub fn new_call(callee: Expression, args: Vec<Expression>, line: usize) -> Self {
+        Self::Call(CallExpr { callee: Box::new(callee), args, line })
     }
 }
 
@@ -114,5 +124,16 @@ pub struct Integer {
 
 pub struct Float {
     pub value: f64,
+    pub line: usize,
+}
+
+pub struct Identifier {
+    pub name: String,
+    pub line: usize,
+}
+
+pub struct CallExpr {
+    pub callee: Box<Expression>,
+    pub args: Vec<Expression>,
     pub line: usize,
 }

@@ -115,6 +115,11 @@ fn number_expression<'a>(parser: &mut Parser<'a>) -> Result<Expression, ()> {
     }
 }
 
+fn identifier_expression<'a>(parser: &mut Parser<'a>) -> Result<Expression, ()> {
+    let line = parser.previous.line;
+    Ok(Expression::new_identifier(parser.previous.lexeme.to_string(), line))
+}
+
 fn binary_expression<'a>(parser: &mut Parser<'a>, left: Expression) -> Result<Expression, ()> {
     // get the kind of the previous token which is the operator
     let kind = parser.previous.kind;
@@ -222,7 +227,66 @@ fn get_expr_parse_rule<'a>(kind: TokenKind) -> ExpressionParseRule<'a> {
             infix: Some(binary_expression),
             precedence: Precedence::Factor,
         },
-        // TODO: Add more parse rules
+        TokenKind::Bang => ExpressionParseRule {
+            prefix: Some(unary_expression),
+            infix: None,
+            precedence: Precedence::Unary,
+        },
+        TokenKind::EqEq => ExpressionParseRule {
+            prefix: None,
+            infix: Some(binary_expression),
+            precedence: Precedence::Equality,
+        },
+        TokenKind::BangEq => ExpressionParseRule {
+            prefix: None,
+            infix: Some(binary_expression),
+            precedence: Precedence::Equality,
+        },
+        TokenKind::LtEq => ExpressionParseRule {
+            prefix: None,
+            infix: Some(binary_expression),
+            precedence: Precedence::Comparison,
+        },
+        TokenKind::Lt => ExpressionParseRule {
+            prefix: None,
+            infix: Some(binary_expression),
+            precedence: Precedence::Comparison,
+        },
+        TokenKind::Gt => ExpressionParseRule {
+            prefix: None,
+            infix: Some(binary_expression),
+            precedence: Precedence::Comparison,
+        },
+        TokenKind::GtEq => ExpressionParseRule {
+            prefix: None,
+            infix: Some(binary_expression),
+            precedence: Precedence::Comparison,
+        },
+        TokenKind::And => ExpressionParseRule {
+            prefix: None,
+            infix: Some(binary_expression),
+            precedence: Precedence::And,
+        },
+        TokenKind::Or => ExpressionParseRule {
+            prefix: None,
+            infix: Some(binary_expression),
+            precedence: Precedence::Or,
+        },
+        TokenKind::Eq => ExpressionParseRule {
+            prefix: None,
+            infix: Some(binary_expression),
+            precedence: Precedence::Assignment,
+        },
+        TokenKind::Number => ExpressionParseRule {
+            prefix: Some(number_expression),
+            infix: None,
+            precedence: Precedence::Primary,
+        },
+        TokenKind::Identifier => ExpressionParseRule {
+            prefix: Some(identifier_expression),
+            infix: None,
+            precedence: Precedence::Primary,
+        },
         _ => unreachable!(),
     }
 }
