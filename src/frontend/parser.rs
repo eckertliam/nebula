@@ -1,7 +1,7 @@
 use crate::frontend::scanner::TokenKind;
 
 use super::scanner::{Scanner, Token};
-use super::ast::{ArrayType, Expression, FunctionType, Program, Statement, TypeExpr};
+use super::ast::{ArrayType, Expression, FunctionType, Program, Statement, TupleType, TypeExpr};
 
 pub struct Parser<'a> {
     pub scanner: Scanner<'a>,
@@ -388,7 +388,26 @@ fn type_expr<'a>(parser: &mut Parser<'a>) -> Result<TypeExpr, ()> {
                 consume(parser, TokenKind::RightBracket, "Expected a right bracket after array type.");
                 Ok(TypeExpr::new_array(ArrayType::new(element_type, size), line))
             }
-            TokenKind::LeftParen => todo!("tuple type"),
+            TokenKind::LeftParen => {
+                let mut tuple_type = TupleType::new();
+                advance(parser);
+                if !check_token(parser, TokenKind::RightParen) {
+                    loop {
+                        match type_expr(parser) {
+                            Ok(element) => tuple_type.elements.push(element),
+                            Err(_) => {
+                            error_at_previous(parser, "Expected a type after tuple type.");
+                            return Err(());
+                            }
+                        }
+                        if !match_token(parser, TokenKind::Comma) {
+                            break;
+                        }
+                    }
+                }
+                consume(parser, TokenKind::RightParen, "Expected a right parenthesis after tuple type.");
+                Ok(TypeExpr::new_tuple(tuple_type, line))
+            }
             _ => todo!("invalid type"),
         },
     }
