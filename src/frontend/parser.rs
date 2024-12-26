@@ -111,8 +111,16 @@ fn group_expression<'a>(parser: &mut Parser<'a>) -> Result<Expression, ()> {
 }
 
 fn call_expression<'a>(parser: &mut Parser<'a>, callee: Expression) -> Result<Expression, ()> {
-    // TODO: implement argument parsing
-    let args = todo!();
+    let mut args = Vec::new();
+    if !check_token(parser, TokenKind::RightParen) {
+        loop {
+            let arg = expression(parser)?;
+            args.push(arg);
+            if !match_token(parser, TokenKind::Comma) {
+                break;
+            }
+        }
+    }
     Ok(Expression::new_call(callee, args, parser.previous.line))
 }
 
@@ -306,6 +314,10 @@ fn get_expr_parse_rule<'a>(kind: TokenKind) -> ExpressionParseRule<'a> {
             infix: Some(call_expression),
             precedence: Precedence::Call,
         },
-        _ => unreachable!(),
+        _ => ExpressionParseRule {
+            prefix: None,
+            infix: None,
+            precedence: Precedence::None,
+        },
     }
 }

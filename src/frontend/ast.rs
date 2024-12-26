@@ -35,11 +35,13 @@ pub enum Type {
     Bool,
     String,
     Void,
-    Array(Box<Type>, Expression),
+    Array(Box<Type>, Box<Expression>),
     Function(Vec<Type>, Box<Type>),
     // User-defined type
     Udt(String),
 }
+
+pub type TypeExpr = Located<Type>;
 
 pub enum Expression {
     Binary(Located<BinaryExpr>),
@@ -116,14 +118,14 @@ pub struct ConstDecl {
 
 pub struct LetDecl {
     pub name: String,
-    pub ty: Option<Type>,
+    pub ty: Option<TypeExpr>,
     pub value: Expression,
 }
 
 pub struct FunctionDecl {
     pub name: String,
-    pub params: Vec<(String, Type)>,
-    pub return_ty: Type,
+    pub params: Vec<(String, TypeExpr)>,
+    pub return_ty: TypeExpr,
     pub body: Block,
 }
 
