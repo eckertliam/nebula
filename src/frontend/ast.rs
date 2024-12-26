@@ -1,3 +1,5 @@
+use std::{fmt::Display, str::FromStr};
+
 use crate::frontend::scanner::TokenKind;
 
 pub struct Located<T> {
@@ -25,23 +27,97 @@ impl Program {
     }
 }
 
-pub enum Type {
+pub enum TypeExpr {
+    Int(Located<IntType>),
+    Float(Located<FloatType>),
+    Bool(Located<BoolType>),
+    String(Located<StringType>),
+    Void(Located<VoidType>),
+    Array(Located<ArrayType>),
+    Function(Located<FunctionType>),
+    Udt(Located<UdtType>),
+}
+
+impl TypeExpr {
+    pub fn new_int(int_str: &str, line: usize) -> Self {
+        Self::Int(Located::new(IntType::from_str(int_str).unwrap(), line))
+    }
+
+    pub fn new_float(float_str: &str, line: usize) -> Self {
+        Self::Float(Located::new(FloatType::from_str(float_str).unwrap(), line))
+    }
+
+    pub fn new_bool(line: usize) -> Self {
+        Self::Bool(Located::new(BoolType, line))
+    }
+
+    pub fn new_string(line: usize) -> Self {
+        Self::String(Located::new(StringType, line))
+    }
+
+    pub fn new_void(line: usize) -> Self {
+        Self::Void(Located::new(VoidType, line))
+    }
+}
+
+pub enum IntType {
     I8,
     I16,
     I32,
     I64,
-    F32,
-    F64,
-    Bool,
-    String,
-    Void,
-    Array(Box<Type>, Box<Expression>),
-    Function(Vec<Type>, Box<Type>),
-    // User-defined type
-    Udt(String),
 }
 
-pub type TypeExpr = Located<Type>;
+impl FromStr for IntType {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "i8" => Ok(IntType::I8),
+            "i16" => Ok(IntType::I16),
+            "i32" => Ok(IntType::I32),
+            "i64" => Ok(IntType::I64),
+            _ => Err(()),
+        }
+    }
+}
+
+pub enum FloatType {
+    F32,
+    F64,
+}
+
+impl FromStr for FloatType {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "f32" => Ok(FloatType::F32),
+            "f64" => Ok(FloatType::F64),
+            _ => Err(()),
+        }
+    }
+}
+
+pub struct BoolType;
+
+pub struct StringType;
+
+pub struct VoidType;
+
+pub struct ArrayType {
+    pub element_type: Box<TypeExpr>,
+    pub size: Box<Expression>,
+}
+
+pub struct FunctionType {
+    pub params: Vec<TypeExpr>,
+    pub return_type: Box<TypeExpr>,
+}
+
+pub struct UdtType {
+    pub name: String,
+    pub type_vars: Vec<TypeExpr>,
+}
 
 pub enum Expression {
     Binary(Located<BinaryExpr>),
@@ -112,7 +188,7 @@ pub struct Block {
 
 pub struct ConstDecl {
     pub name: String,
-    pub ty: Option<Type>,
+    pub ty: Option<TypeExpr>,
     pub value: Expression,
 }
 

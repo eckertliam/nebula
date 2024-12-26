@@ -1,7 +1,7 @@
 use crate::frontend::scanner::TokenKind;
 
 use super::scanner::{Scanner, Token};
-use super::ast::{Expression, Program, Statement, Type};
+use super::ast::{Expression, Program, Statement, TypeExpr};
 
 pub struct Parser<'a> {
     pub scanner: Scanner<'a>,
@@ -318,6 +318,24 @@ fn get_expr_parse_rule<'a>(kind: TokenKind) -> ExpressionParseRule<'a> {
             prefix: None,
             infix: None,
             precedence: Precedence::None,
+        },
+    }
+}
+
+// TypeExpr parsing =====
+
+fn type_expr<'a>(parser: &mut Parser<'a>) -> Result<TypeExpr, ()> {
+    let line = parser.previous.line;
+    match parser.previous.lexeme {
+        "i8" | "i16" | "i32" | "i64" => Ok(TypeExpr::new_int(parser.previous.lexeme, line)),
+        "f32" | "f64" => Ok(TypeExpr::new_float(parser.previous.lexeme, line)),
+        "bool" => Ok(TypeExpr::new_bool(line)),
+        "string" => Ok(TypeExpr::new_string(line)),
+        "void" => Ok(TypeExpr::new_void(line)),
+        _ => match parser.previous.kind {
+            TokenKind::Fn => todo!("function type"),
+            TokenKind::LeftBracket => todo!("array type"),
+            _ => todo!("invalid type"),
         },
     }
 }
