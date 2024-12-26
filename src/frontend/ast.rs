@@ -1,5 +1,16 @@
 use crate::frontend::scanner::TokenKind;
 
+pub struct Located<T> {
+    pub node: T,
+    pub line: usize,
+}
+
+impl<T> Located<T> {
+    pub fn new(node: T, line: usize) -> Self {
+        Self { node, line }
+    }
+}
+
 pub struct Program {
     statements: Vec<Statement>,
 }
@@ -31,42 +42,58 @@ pub enum Type {
 }
 
 pub enum Expression {
-    Binary(BinaryExpr),
-    Unary(UnaryExpr),
-    Integer(Integer),
-    Float(Float),
-    Identifier(Identifier),
-    Call(CallExpr),
+    Binary(Located<BinaryExpr>),
+    Unary(Located<UnaryExpr>),
+    Integer(Located<i64>),
+    Float(Located<f64>),
+    Identifier(Located<String>),
+    Call(Located<CallExpr>),
 }
 
 impl Expression {
     pub fn new_binary(lhs: Expression, op: TokenKind, rhs: Expression, line: usize) -> Self {
-        Self::Binary(BinaryExpr {
+        Self::Binary(Located::new(BinaryExpr {
             lhs: Box::new(lhs),
             op,
             rhs: Box::new(rhs),
-            line,
-        })
+        }, line))
     }
 
     pub fn new_unary(op: TokenKind, expr: Expression, line: usize) -> Self {
-        Self::Unary(UnaryExpr { op, expr: Box::new(expr), line })
+        Self::Unary(Located::new(UnaryExpr {
+            op,
+            expr: Box::new(expr),
+        }, line))
     }
 
     pub fn new_integer(value: i64, line: usize) -> Self {
-        Self::Integer(Integer { value, line })
+        Self::Integer(Located::new(value, line))
     }
 
     pub fn new_float(value: f64, line: usize) -> Self {
-        Self::Float(Float { value, line })
+        Self::Float(Located::new(value, line))
     }
 
     pub fn new_identifier(name: String, line: usize) -> Self {
-        Self::Identifier(Identifier { name, line })
+        Self::Identifier(Located::new(name, line))
     }
 
     pub fn new_call(callee: Expression, args: Vec<Expression>, line: usize) -> Self {
-        Self::Call(CallExpr { callee: Box::new(callee), args, line })
+        Self::Call(Located::new(CallExpr {
+            callee: Box::new(callee),
+            args,
+        }, line))
+    }
+
+    pub fn line(&self) -> usize {
+        match self {
+            Self::Binary(Located { line, .. }) => *line,
+            Self::Unary(Located { line, .. }) => *line,
+            Self::Integer(Located { line, .. }) => *line,
+            Self::Float(Located { line, .. }) => *line,
+            Self::Identifier(Located { line, .. }) => *line,
+            Self::Call(Located { line, .. }) => *line,
+        }
     }
 }
 
@@ -79,21 +106,18 @@ pub enum Statement {
 
 pub struct Block {
     pub statements: Vec<Statement>,
-    pub line: usize,
 }
 
 pub struct ConstDecl {
     pub name: String,
     pub ty: Option<Type>,
     pub value: Expression,
-    pub line: usize,
 }
 
 pub struct LetDecl {
     pub name: String,
     pub ty: Option<Type>,
     pub value: Expression,
-    pub line: usize,
 }
 
 pub struct FunctionDecl {
@@ -101,39 +125,20 @@ pub struct FunctionDecl {
     pub params: Vec<(String, Type)>,
     pub return_ty: Type,
     pub body: Block,
-    pub line: usize,
 }
 
 pub struct BinaryExpr {
     pub lhs: Box<Expression>,
     pub op: TokenKind,
     pub rhs: Box<Expression>,
-    pub line: usize,
 }
 
 pub struct UnaryExpr {
     pub op: TokenKind,
     pub expr: Box<Expression>,
-    pub line: usize,
-}
-
-pub struct Integer {
-    pub value: i64,
-    pub line: usize,
-}
-
-pub struct Float {
-    pub value: f64,
-    pub line: usize,
-}
-
-pub struct Identifier {
-    pub name: String,
-    pub line: usize,
 }
 
 pub struct CallExpr {
     pub callee: Box<Expression>,
     pub args: Vec<Expression>,
-    pub line: usize,
 }
