@@ -58,6 +58,10 @@ impl TypeExpr {
     pub fn new_void(line: usize) -> Self {
         Self::Void(Located::new(VoidType, line))
     }
+
+    pub fn new_function(function_type: FunctionType, line: usize) -> Self {
+        Self::Function(Located::new(function_type, line))
+    }
 }
 
 pub enum IntType {
@@ -112,6 +116,15 @@ pub struct ArrayType {
 pub struct FunctionType {
     pub params: Vec<TypeExpr>,
     pub return_type: Box<TypeExpr>,
+}
+
+impl FunctionType {
+    pub fn new() -> Self {
+        Self {
+            params: Vec::new(),
+            return_type: Box::new(TypeExpr::new_void(0)),
+        }
+    }
 }
 
 pub struct UdtType {

@@ -1,7 +1,7 @@
 use crate::frontend::scanner::TokenKind;
 
 use super::scanner::{Scanner, Token};
-use super::ast::{Expression, Program, Statement, TypeExpr};
+use super::ast::{Expression, FunctionType, Program, Statement, TypeExpr};
 
 pub struct Parser<'a> {
     pub scanner: Scanner<'a>,
@@ -333,7 +333,38 @@ fn type_expr<'a>(parser: &mut Parser<'a>) -> Result<TypeExpr, ()> {
         "string" => Ok(TypeExpr::new_string(line)),
         "void" => Ok(TypeExpr::new_void(line)),
         _ => match parser.previous.kind {
-            TokenKind::Fn => todo!("function type"),
+            TokenKind::Fn => {
+                let mut function_type = FunctionType::new();
+                advance(parser);
+                consume(parser, TokenKind::LeftParen, "Expected a left parenthesis after function type.");
+                if !check_token(parser, TokenKind::RightParen) {
+                    loop {
+                        match type_expr(parser) {
+                            Ok(param) => function_type.params.push(param),
+                            Err(_) => {
+                                error_at_previous(parser, "Expected a parameter type after function type.");
+                                return Err(());
+                            }
+                        }
+                        if !match_token(parser, TokenKind::Comma) {
+                            break;
+                        }
+                    }
+                }
+                consume(parser, TokenKind::RightParen, "Expected a right parenthesis after function type.");
+                if match_token(parser, TokenKind::Arrow) {
+                    match type_expr(parser) {
+                        Ok(return_type) => function_type.return_type = Box::new(return_type),
+                        Err(_) => {
+                            error_at_previous(parser, "Expected a return type after function type.");
+                            return Err(());
+                        }
+                    }
+                } else {
+                    function_type.return_type = Box::new(TypeExpr::new_void(line));
+                }
+                Ok(TypeExpr::new_function(function_type, line))
+            }
             TokenKind::LeftBracket => todo!("array type"),
             _ => todo!("invalid type"),
         },
