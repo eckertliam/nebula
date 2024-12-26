@@ -34,6 +34,7 @@ pub enum TypeExpr {
     String(Located<StringType>),
     Void(Located<VoidType>),
     Array(Located<ArrayType>),
+    Tuple(Located<TupleType>),
     Function(Located<FunctionType>),
     Udt(Located<UdtType>),
 }
@@ -61,6 +62,14 @@ impl TypeExpr {
 
     pub fn new_function(function_type: FunctionType, line: usize) -> Self {
         Self::Function(Located::new(function_type, line))
+    }
+
+    pub fn new_tuple(tuple_type: TupleType, line: usize) -> Self {
+        Self::Tuple(Located::new(tuple_type, line))
+    }
+
+    pub fn new_array(array_type: ArrayType, line: usize) -> Self {
+        Self::Array(Located::new(array_type, line))
     }
 }
 
@@ -111,6 +120,25 @@ pub struct VoidType;
 pub struct ArrayType {
     pub element_type: Box<TypeExpr>,
     pub size: Box<Expression>,
+}
+
+impl ArrayType {
+    pub fn new(element_type: TypeExpr, size: Expression) -> Self {
+        Self {
+            element_type: Box::new(element_type),
+            size: Box::new(size),
+        }
+    }
+}
+
+pub struct TupleType {
+    pub elements: Vec<TypeExpr>,
+}
+
+impl TupleType {
+    pub fn new() -> Self {
+        Self { elements: Vec::new() }
+    }
 }
 
 pub struct FunctionType {
