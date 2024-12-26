@@ -11,6 +11,8 @@ pub enum TokenKind {
     Semicolon,
     Colon,
     ColonColon,
+    Arrow,
+    FatArrow,
     Plus,
     Minus,
     Star,
@@ -225,7 +227,14 @@ impl<'a> Scanner<'a> {
                     }
                 }
                 '+' => self.make_token(TokenKind::Plus),
-                '-' => self.make_token(TokenKind::Minus),
+                '-' => {
+                    if let Some('>') = self.peek() {
+                        self.advance();
+                        self.make_token(TokenKind::Arrow)
+                    } else {
+                        self.make_token(TokenKind::Minus)
+                    }
+                }
                 '*' => self.make_token(TokenKind::Star),
                 '/' => self.make_token(TokenKind::Slash),
                 '%' => self.make_token(TokenKind::Modulo),
@@ -241,6 +250,9 @@ impl<'a> Scanner<'a> {
                     if let Some('=') = self.peek() {
                         self.advance();
                         self.make_token(TokenKind::EqEq)
+                    } else if let Some('>') = self.peek() {
+                        self.advance();
+                        self.make_token(TokenKind::FatArrow)
                     } else {
                         self.make_token(TokenKind::Eq)
                     }

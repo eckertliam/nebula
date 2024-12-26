@@ -1,7 +1,7 @@
 use crate::frontend::scanner::TokenKind;
 
 use super::scanner::{Scanner, Token};
-use super::ast::{Expression, Program, Statement, Type};
+use super::ast::{ArrayType, Expression, FunctionType, Program, Statement, TupleType, TypeExpr};
 
 pub struct Parser<'a> {
     pub scanner: Scanner<'a>,
@@ -318,6 +318,100 @@ fn get_expr_parse_rule<'a>(kind: TokenKind) -> ExpressionParseRule<'a> {
             prefix: None,
             infix: None,
             precedence: Precedence::None,
+        },
+    }
+}
+
+// TypeExpr parsing =====
+
+fn type_expr<'a>(parser: &mut Parser<'a>) -> Result<TypeExpr, ()> {
+    let line = parser.previous.line;
+    match parser.previous.lexeme {
+        "i8" | "i16" | "i32" | "i64" => Ok(TypeExpr::new_int(parser.previous.lexeme, line)),
+        "f32" | "f64" => Ok(TypeExpr::new_float(parser.previous.lexeme, line)),
+        "bool" => Ok(TypeExpr::new_bool(line)),
+        "string" => Ok(TypeExpr::new_string(line)),
+        "void" => Ok(TypeExpr::new_void(line)),
+        _ => match parser.previous.kind {
+            TokenKind::Fn => {
+                let mut function_type = FunctionType::new();
+                advance(parser);
+                consume(parser, TokenKind::LeftParen, "Expected a left parenthesis after function type.");
+                if !check_token(parser, TokenKind::RightParen) {
+                    loop {
+                        match type_expr(parser) {
+                            Ok(param) => function_type.params.push(param),
+                            Err(_) => {
+                                error_at_previous(parser, "Expected a parameter type after function type.");
+                                return Err(());
+                            }
+                        }
+                        if !match_token(parser, TokenKind::Comma) {
+                            break;
+                        }
+                    }
+                }
+                consume(parser, TokenKind::RightParen, "Expected a right parenthesis after function type.");
+                if match_token(parser, TokenKind::Arrow) {
+                    match type_expr(parser) {
+                        Ok(return_type) => function_type.return_type = Box::new(return_type),
+                        Err(_) => {
+                            error_at_previous(parser, "Expected a return type after function type.");
+                            return Err(());
+                        }
+                    }
+                } else {
+                    function_type.return_type = Box::new(TypeExpr::new_void(line));
+                }
+                Ok(TypeExpr::new_function(function_type, line))
+            }
+            TokenKind::LeftBracket => {
+                // advance to the next token
+                advance(parser);
+                // parse the element type
+                let element_type = match type_expr(parser) {
+                    Ok(element_type) => element_type,
+                    Err(_) => {
+                        error_at_previous(parser, "Expected an element type after array type.");
+                        return Err(());
+                    }
+                };
+                // parse the size
+                let size = match expression(parser) {
+                    Ok(size) => size,
+                    Err(_) => {
+                        error_at_previous(parser, "Expected a size after array type.");
+                        return Err(());
+                    }
+                };
+                // consume the closing bracket
+                consume(parser, TokenKind::RightBracket, "Expected a right bracket after array type.");
+                Ok(TypeExpr::new_array(ArrayType::new(element_type, size), line))
+            }
+            TokenKind::LeftParen => {
+                let mut tuple_type = TupleType::new();
+                advance(parser);
+                if !check_token(parser, TokenKind::RightParen) {
+                    loop {
+                        match type_expr(parser) {
+                            Ok(element) => tuple_type.elements.push(element),
+                            Err(_) => {
+                            error_at_previous(parser, "Expected a type after tuple type.");
+                            return Err(());
+                            }
+                        }
+                        if !match_token(parser, TokenKind::Comma) {
+                            break;
+                        }
+                    }
+                }
+                consume(parser, TokenKind::RightParen, "Expected a right parenthesis after tuple type.");
+                Ok(TypeExpr::new_tuple(tuple_type, line))
+            }
+            _ => {
+                error_at_previous(parser, "Expected a valid type.");
+                return Err(());
+            }
         },
     }
 }
