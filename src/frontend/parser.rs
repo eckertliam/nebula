@@ -408,7 +408,10 @@ fn type_expr<'a>(parser: &mut Parser<'a>) -> Result<TypeExpr, ()> {
                 consume(parser, TokenKind::RightParen, "Expected a right parenthesis after tuple type.");
                 Ok(TypeExpr::new_tuple(tuple_type, line))
             }
-            _ => todo!("invalid type"),
+            _ => {
+                error_at_previous(parser, "Expected a valid type.");
+                return Err(());
+            }
         },
     }
 }
