@@ -206,6 +206,7 @@ impl<'a> Scanner<'a> {
 
     pub fn scan_token(&mut self) -> Token<'a> {
         self.skip_whitespace();
+        self.start = self.current;
 
         if let Some(ch) = self.advance() {
             match ch {
@@ -279,7 +280,147 @@ impl<'a> Scanner<'a> {
                 _ => self.error_token("Unexpected character"),
             }
         } else {
-            self.make_token(TokenKind::Eof)
+            Token {
+                kind: TokenKind::Eof,
+                lexeme: "",
+                line: self.line,
+            }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    macro_rules! assert_token {
+        ($scanner:expr, $kind:expr, $lexeme:expr) => {
+            let token = $scanner.scan_token();
+            assert_eq!(token.kind, $kind);
+            assert_eq!(token.lexeme, $lexeme);
+        };
+    }
+
+    macro_rules! assert_tokens {
+        ($scanner:expr, $tokens:expr) => {
+            for (kind, lexeme) in $tokens {
+                assert_token!($scanner, kind, lexeme);
+            }
+        };
+    }
+
+    #[test]
+    fn test_scan_token() {
+        let mut scanner = Scanner::new("let x = 10;");
+        assert_tokens!(scanner, [
+            (TokenKind::Let, "let"),
+            (TokenKind::Identifier, "x"),
+            (TokenKind::Eq, "="),
+            (TokenKind::Number, "10"),
+            (TokenKind::Semicolon, ";"),
+            (TokenKind::Eof, ""),
+        ]);
+    }
+
+    #[test]
+    fn test_numbers() {
+        let mut scanner = Scanner::new("123 45.67 0.123 42.");
+        assert_tokens!(scanner, [
+            (TokenKind::Number, "123"),
+            (TokenKind::Number, "45.67"),
+            (TokenKind::Number, "0.123"),
+            (TokenKind::Number, "42"),
+            (TokenKind::Dot, "."),
+            (TokenKind::Eof, ""),
+        ]);
+    }
+
+    #[test]
+    fn test_strings() {
+        let mut scanner = Scanner::new("\"hello world\" \"multi\nline\"");
+        let token1 = scanner.scan_token();
+        assert_eq!(token1.kind, TokenKind::String);
+        assert_eq!(token1.lexeme, "\"hello world\"");
+        assert_eq!(token1.line, 1);
+
+        let token2 = scanner.scan_token();
+        assert_eq!(token2.kind, TokenKind::String);
+        assert_eq!(token2.lexeme, "\"multi\nline\"");
+        assert_eq!(token2.line, 2);
+    }
+
+    #[test]
+    fn test_keywords() {
+        let mut scanner = Scanner::new("if else while loop for in break continue fn let const return true false and or");
+        assert_tokens!(scanner, [
+            (TokenKind::If, "if"),
+            (TokenKind::Else, "else"),
+            (TokenKind::While, "while"),
+            (TokenKind::Loop, "loop"),
+            (TokenKind::For, "for"),
+            (TokenKind::In, "in"),
+            (TokenKind::Break, "break"),
+            (TokenKind::Continue, "continue"),
+            (TokenKind::Fn, "fn"),
+            (TokenKind::Let, "let"),
+            (TokenKind::Const, "const"),
+            (TokenKind::Return, "return"),
+            (TokenKind::True, "true"),
+            (TokenKind::False, "false"),
+            (TokenKind::And, "and"),
+            (TokenKind::Or, "or"),
+            (TokenKind::Eof, ""),
+        ]);
+    }
+
+    #[test]
+    fn test_compound_operators() {
+        let mut scanner = Scanner::new("== != <= >= :: -> =>");
+        assert_tokens!(scanner, [
+            (TokenKind::EqEq, "=="),
+            (TokenKind::BangEq, "!="),
+            (TokenKind::LtEq, "<="),
+            (TokenKind::GtEq, ">="),
+            (TokenKind::ColonColon, "::"),
+            (TokenKind::Arrow, "->"),
+            (TokenKind::FatArrow, "=>"),
+            (TokenKind::Eof, ""),
+        ]);
+    }
+
+    #[test]
+    fn test_identifiers() {
+        let mut scanner = Scanner::new("x _y z123 hello_world");
+        assert_tokens!(scanner, [
+            (TokenKind::Identifier, "x"),
+            (TokenKind::Identifier, "_y"),
+            (TokenKind::Identifier, "z123"),
+            (TokenKind::Identifier, "hello_world"),
+            (TokenKind::Eof, ""),
+        ]);
+    }
+
+    #[test]
+    fn test_whitespace_and_newlines() {
+        let mut scanner = Scanner::new("let\n  x\t=\r\n10;");
+        let tokens = vec![
+            scanner.scan_token(),
+            scanner.scan_token(),
+            scanner.scan_token(),
+            scanner.scan_token(),
+            scanner.scan_token(),
+        ];
+        
+        assert_eq!(tokens[0].line, 1); // let
+        assert_eq!(tokens[1].line, 2); // x
+        assert_eq!(tokens[2].line, 2); // =
+        assert_eq!(tokens[3].line, 3); // 10
+        assert_eq!(tokens[4].line, 3); // ;
+    }
+
+    #[test]
+    fn test_error_handling() {
+        let mut scanner = Scanner::new("@#$");
+        assert_token!(scanner, TokenKind::Error, "Unexpected character");
     }
 }
