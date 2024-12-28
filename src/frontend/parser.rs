@@ -14,14 +14,17 @@ pub struct Parser<'a> {
 
 impl<'a> Parser<'a> {
     pub fn new(scanner: Scanner<'a>) -> Self {
-        Self {
+        let mut parser = Self {
             scanner,
             current: Token::default(),
             previous: Token::default(),
             had_error: false,
             panic_mode: false,
             program: Program::new(),
-        }
+        };
+        // advance to the first token
+        advance(&mut parser);
+        parser
     }
 }
 
@@ -499,4 +502,31 @@ fn expression_statement<'a>(parser: &mut Parser<'a>) -> Option<Located<Statement
     let expr = expression(parser)?.node;
     consume(parser, TokenKind::Semicolon, "Expected a semicolon after expression statement.")?;
     Some(Statement::new_expression_stmt(expr, line))
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::frontend::ast::BinaryExpr;
+
+    use super::*;
+
+    #[test]
+    fn test_binary_expr() {
+        let scanner = Scanner::new("1 + 2 * 3");
+        let mut parser = Parser::new(scanner);
+        let expr = expression(&mut parser);
+        assert!(expr.is_some());
+        let top_bin_expr = match expr.unwrap().node {
+            Expression::Binary(bin_expr) => bin_expr,
+            _ => panic!("Expected a binary expression."),
+        };
+        assert_eq!(top_bin_expr.op, TokenKind::Plus);
+        assert!(matches!(*top_bin_expr.lhs, Expression::Integer(1)));
+        let _expected_rhs = Expression::Binary(BinaryExpr {
+            op: TokenKind::Star,
+            lhs: Box::new(Expression::Integer(2)),
+            rhs: Box::new(Expression::Integer(3)),
+        });
+        assert!(matches!(*top_bin_expr.rhs, _expected_rhs));
+    }
 }
