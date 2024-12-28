@@ -217,10 +217,33 @@ impl Expression {
 }
 
 pub enum Statement {
-    ExpressionStmt(Expression),
-    ConstDecl(ConstDecl),
-    LetDecl(LetDecl),
-    Block(Block),
+    ExpressionStmt(Located<Expression>),
+    ConstDecl(Located<ConstDecl>),
+    LetDecl(Located<LetDecl>),
+    Block(Located<Block>),
+    FunctionDecl(Located<FunctionDecl>),
+}
+
+impl Statement {
+    pub fn new_expression_stmt(expr: Expression, line: usize) -> Self {
+        Self::ExpressionStmt(Located::new(expr, line))
+    }
+
+    pub fn new_const_decl(name: String, ty: Option<TypeExpr>, value: Expression, line: usize) -> Self {
+        Self::ConstDecl(Located::new(ConstDecl { name, ty, value }, line))
+    }
+
+    pub fn new_let_decl(name: String, ty: Option<TypeExpr>, value: Expression, line: usize) -> Self {
+        Self::LetDecl(Located::new(LetDecl { name, ty, value }, line))
+    }
+
+    pub fn new_block(block: Block, line: usize) -> Self {
+        Self::Block(Located::new(block, line))
+    }
+
+    pub fn new_function_decl(name: String, params: Vec<(String, TypeExpr)>, return_ty: TypeExpr, body: Block, line: usize) -> Self {
+        Self::FunctionDecl(Located::new(FunctionDecl { name, params, return_ty, body }, line))
+    }
 }
 
 pub struct Block {
