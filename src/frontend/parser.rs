@@ -1,7 +1,7 @@
 use crate::frontend::scanner::TokenKind;
 
 use super::scanner::{Scanner, Token};
-use super::ast::{ArrayType, Block, Expression, FunctionType, Program, Statement, TupleType, TypeExpr};
+use super::ast::{ArrayType, Block, Expression, FunctionType, Located, Program, Statement, TupleType, TypeExpr};
 
 pub struct Parser<'a> {
     pub scanner: Scanner<'a>,
@@ -98,12 +98,12 @@ fn match_token<'a>(parser: &mut Parser<'a>, kind: TokenKind) -> bool {
 
 // Expression parsing =====
 
-fn expression<'a>(parser: &mut Parser<'a>) -> Option<Expression> {
+fn expression<'a>(parser: &mut Parser<'a>) -> Option<Located<Expression>> {
     // call parse_precedence
     parse_precedence(parser, Precedence::Assignment)
 }
 
-fn group_expression<'a>(parser: &mut Parser<'a>) -> Option<Expression> {
+fn group_expression<'a>(parser: &mut Parser<'a>) -> Option<Located<Expression>> {
     // parse the expression inside the parentheses
     let expr = expression(parser)?;
     // consume the closing parenthesis
@@ -111,21 +111,21 @@ fn group_expression<'a>(parser: &mut Parser<'a>) -> Option<Expression> {
     Some(expr)
 }
 
-fn call_expression<'a>(parser: &mut Parser<'a>, callee: Expression) -> Option<Expression> {
+fn call_expression<'a>(parser: &mut Parser<'a>, callee: Located<Expression>) -> Option<Located<Expression>> {
     let mut args = Vec::new();
     if !check_token(parser, TokenKind::RightParen) {
         loop {
-            let arg = expression(parser)?;
+            let arg = expression(parser)?.node;
             args.push(arg);
             if !match_token(parser, TokenKind::Comma) {
                 break;
             }
         }
     }
-    Some(Expression::new_call(callee, args, parser.previous.line))
+    Some(Expression::new_call(callee.node, args, callee.line))
 }
 
-fn number_expression<'a>(parser: &mut Parser<'a>) -> Option<Expression> {
+fn number_expression<'a>(parser: &mut Parser<'a>) -> Option<Located<Expression>> {
     let line = parser.previous.line;
     // determine if the number is an integer or a float
     if let Ok(i) = parser.previous.lexeme.parse::<i64>() {
@@ -137,34 +137,32 @@ fn number_expression<'a>(parser: &mut Parser<'a>) -> Option<Expression> {
     }
 }
 
-fn identifier_expression<'a>(parser: &mut Parser<'a>) -> Option<Expression> {
+fn identifier_expression<'a>(parser: &mut Parser<'a>) -> Option<Located<Expression>> {
     let line = parser.previous.line;
     Some(Expression::new_identifier(parser.previous.lexeme.to_string(), line))
 }
 
-fn binary_expression<'a>(parser: &mut Parser<'a>, left: Expression) -> Option<Expression> {
+fn binary_expression<'a>(parser: &mut Parser<'a>, left: Located<Expression>) -> Option<Located<Expression>> {
     // get the kind of the previous token which is the operator
     let kind = parser.previous.kind;
     // get the infix parse function for the operator
     let rule = get_expr_parse_rule(kind);
     // parse the right hand side of the expression
     let right = parse_precedence(parser, rule.precedence.increment())?;
-    // create a binary expression
-    let line = parser.previous.line;
-    Some(Expression::new_binary(left, kind, right, line))
+    Some(Expression::new_binary(left.node, kind, right.node, left.line))
 }
 
-fn unary_expression<'a>(parser: &mut Parser<'a>) -> Option<Expression> {
+fn unary_expression<'a>(parser: &mut Parser<'a>) -> Option<Located<Expression>> {
     // get the operator
     let kind = parser.previous.kind;
     // parse the operand
     let operand = parse_precedence(parser, Precedence::Unary)?;
     // create a unary expression
     let line = parser.previous.line;
-    Some(Expression::new_unary(kind, operand, line))
+    Some(Expression::new_unary(kind, operand.node, line))
 }
 
-fn parse_precedence<'a>(parser: &mut Parser<'a>, precedence: Precedence) -> Option<Expression> {
+fn parse_precedence<'a>(parser: &mut Parser<'a>, precedence: Precedence) -> Option<Located<Expression>> {
     // advance to the next token
     advance(parser);
     // get the prefix parse function for the previous token
@@ -222,8 +220,8 @@ impl Precedence {
     }
 }
 
-type PrefixParseFn<'a> = fn(&mut Parser<'a>) -> Option<Expression>;
-type InfixParseFn<'a> = fn(&mut Parser<'a>, Expression) -> Option<Expression>;
+type PrefixParseFn<'a> = fn(&mut Parser<'a>) -> Option<Located<Expression>>;
+type InfixParseFn<'a> = fn(&mut Parser<'a>, Located<Expression>) -> Option<Located<Expression>>;
 
 struct ExpressionParseRule<'a> {
     prefix: Option<PrefixParseFn<'a>>,
@@ -328,7 +326,7 @@ fn get_expr_parse_rule<'a>(kind: TokenKind) -> ExpressionParseRule<'a> {
 
 // TypeExpr parsing =====
 
-fn type_expr<'a>(parser: &mut Parser<'a>) -> Option<TypeExpr> {
+fn type_expr<'a>(parser: &mut Parser<'a>) -> Option<Located<TypeExpr>> {
     let line = parser.previous.line;
     match parser.previous.lexeme {
         "i8" | "i16" | "i32" | "i64" => Some(TypeExpr::new_int(parser.previous.lexeme, line)),
@@ -338,13 +336,13 @@ fn type_expr<'a>(parser: &mut Parser<'a>) -> Option<TypeExpr> {
         "void" => Some(TypeExpr::new_void(line)),
         _ => match parser.previous.kind {
             TokenKind::Fn => {
-                let mut function_type = FunctionType::new();
+                let mut func_params = Vec::new();
                 advance(parser);
                 consume(parser, TokenKind::LeftParen, "Expected a left parenthesis after function type.")?;
                 if !check_token(parser, TokenKind::RightParen) {
                     loop {
                         match type_expr(parser) {
-                            Some(param) => function_type.params.push(param),
+                            Some(param) => func_params.push(param.node),
                             None => return error_at_previous(parser, "Expected a parameter type after function type.")
                         }
                         if !match_token(parser, TokenKind::Comma) {
@@ -353,40 +351,39 @@ fn type_expr<'a>(parser: &mut Parser<'a>) -> Option<TypeExpr> {
                     }
                 }
                 consume(parser, TokenKind::RightParen, "Expected a right parenthesis after function type.")?;
-                if match_token(parser, TokenKind::Arrow) {
-                    match type_expr(parser) {
-                        Some(return_type) => function_type.return_type = Box::new(return_type),
-                        None => return error_at_previous(parser, "Expected a return type after function type.")
-                    }
-                } else {
-                    function_type.return_type = Box::new(TypeExpr::new_void(line));
-                }
-                Some(TypeExpr::new_function(function_type, line))
+                let return_type = {
+                    let rt = match match_token(parser, TokenKind::Arrow) {
+                        true => type_expr(parser)?,
+                        false => TypeExpr::new_void(line),
+                    };
+                    rt.node
+                };
+                Some(TypeExpr::new_function(func_params, return_type, line))
             }
             TokenKind::LeftBracket => {
                 // advance to the next token
                 advance(parser);
                 // parse the element type
                 let element_type = match type_expr(parser) {
-                    Some(element_type) => element_type,
+                    Some(element_type) => element_type.node,
                     None => return error_at_previous(parser, "Expected an element type after array type.")
                 };
                 // parse the size
                 let size = match expression(parser) {
-                    Some(size) => size,
+                    Some(size) => size.node,
                     None => return error_at_previous(parser, "Expected a size after array type.")
                 };
                 // consume the closing bracket
                 consume(parser, TokenKind::RightBracket, "Expected a right bracket after array type.")?;
-                Some(TypeExpr::new_array(ArrayType::new(element_type, size), line))
+                Some(TypeExpr::new_array(element_type, size, line))
             }
             TokenKind::LeftParen => {
-                let mut tuple_type = TupleType::new();
                 advance(parser);
+                let mut tuple_type = Vec::new();
                 if !check_token(parser, TokenKind::RightParen) {
                     loop {
                         match type_expr(parser) {
-                            Some(element) => tuple_type.elements.push(element),
+                            Some(element) => tuple_type.push(element.node),
                             None => return error_at_previous(parser, "Expected a type after tuple type.")
                         }
                         if !match_token(parser, TokenKind::Comma) {
@@ -404,7 +401,7 @@ fn type_expr<'a>(parser: &mut Parser<'a>) -> Option<TypeExpr> {
 
 // Statement parsing =====
 
-fn statement<'a>(parser: &mut Parser<'a>) -> Option<Statement> {
+fn statement<'a>(parser: &mut Parser<'a>) -> Option<Located<Statement>> {
     // match on current token kind
     match parser.current.kind {
         TokenKind::Let => var_declaration(parser, false),
@@ -428,7 +425,7 @@ fn block<'a>(parser: &mut Parser<'a>) -> Option<Block> {
     Some(Block { statements })
 }
 
-fn block_statement<'a>(parser: &mut Parser<'a>) -> Option<Statement> {
+fn block_statement<'a>(parser: &mut Parser<'a>) -> Option<Located<Statement>> {
     // get line of left brace prior to calling block fn
     let line = parser.current.line;
     // parse the block
@@ -436,7 +433,7 @@ fn block_statement<'a>(parser: &mut Parser<'a>) -> Option<Statement> {
     Some(Statement::new_block(block, line))
 }
 
-fn var_declaration<'a>(parser: &mut Parser<'a>, is_const: bool) -> Option<Statement> {
+fn var_declaration<'a>(parser: &mut Parser<'a>, is_const: bool) -> Option<Located<Statement>> {
     // advance over the let or const keyword
     advance(parser);
     let line = parser.previous.line;
@@ -445,14 +442,14 @@ fn var_declaration<'a>(parser: &mut Parser<'a>, is_const: bool) -> Option<Statem
     // check for a colon indicating a type annotation
     let ty = if match_token(parser, TokenKind::Colon) {
         // parse the type if there is none provided return out of the fn with None
-        Some(type_expr(parser)?)
+        Some(type_expr(parser)?.node)
     } else {
         None
     };
     // expect an equals sign
     consume(parser, TokenKind::Eq, "Expected an equals sign after variable declaration.")?;
     // parse the value
-    let value = expression(parser)?;
+    let value = expression(parser)?.node;
     // expect a semicolon
     consume(parser, TokenKind::Semicolon, "Expected a semicolon after variable declaration.")?;
     if is_const {
@@ -462,7 +459,7 @@ fn var_declaration<'a>(parser: &mut Parser<'a>, is_const: bool) -> Option<Statem
     }
 }
 
-fn function_declaration<'a>(parser: &mut Parser<'a>) -> Option<Statement> {
+fn function_declaration<'a>(parser: &mut Parser<'a>) -> Option<Located<Statement>> {
     // advance over the fn keyword
     advance(parser);
     let line = parser.previous.line;
@@ -471,7 +468,7 @@ fn function_declaration<'a>(parser: &mut Parser<'a>) -> Option<Statement> {
     // parse the parameters
     let params = parse_function_params(parser)?;
     // parse the return type
-    let return_type = type_expr(parser)?;
+    let return_type = type_expr(parser)?.node;
     // parse the body
     let body = block(parser)?;
     Some(Statement::new_function_decl(name, params, return_type, body, line))
@@ -485,7 +482,7 @@ fn parse_function_params<'a>(parser: &mut Parser<'a>) -> Option<Vec<(String, Typ
     if !check_token(parser, TokenKind::RightParen) {
         loop {
             let name = parser.previous.lexeme.to_string();
-            let ty = type_expr(parser)?;
+            let ty = type_expr(parser)?.node;
             params.push((name, ty));
             if !match_token(parser, TokenKind::Comma) {
                 break;
@@ -497,9 +494,9 @@ fn parse_function_params<'a>(parser: &mut Parser<'a>) -> Option<Vec<(String, Typ
     Some(params)
 }
 
-fn expression_statement<'a>(parser: &mut Parser<'a>) -> Option<Statement> {
+fn expression_statement<'a>(parser: &mut Parser<'a>) -> Option<Located<Statement>> {
     let line = parser.previous.line;
-    let expr = expression(parser)?;
+    let expr = expression(parser)?.node;
     consume(parser, TokenKind::Semicolon, "Expected a semicolon after expression statement.")?;
     Some(Statement::new_expression_stmt(expr, line))
 }
