@@ -366,7 +366,6 @@ fn type_expr<'a>(parser: &mut Parser<'a>) -> Option<Located<TypeExpr>> {
         _ => match parser.previous.kind {
             TokenKind::Fn => {
                 let mut func_params = Vec::new();
-                advance(parser);
                 consume(parser, TokenKind::LeftParen, "Expected a left parenthesis after function type.")?;
                 if !check_token(parser, TokenKind::RightParen) {
                     loop {
@@ -408,7 +407,6 @@ fn type_expr<'a>(parser: &mut Parser<'a>) -> Option<Located<TypeExpr>> {
                 Some(TypeExpr::new_array(element_type, size, line))
             }
             TokenKind::LeftParen => {
-                advance(parser);
                 let mut tuple_type = Vec::new();
                 if !check_token(parser, TokenKind::RightParen) {
                     loop {
@@ -697,8 +695,38 @@ mod tests {
         assert_eq!(*top_array_expr.size, Expression::Integer(2));
     }
 
-    // TODO: test tuple type expressions
-    // TODO: test function type expressions
+    #[test]
+    fn test_tuple_type_expr() {
+        let scanner = Scanner::new("(i8, f32, bool)");
+        let mut parser = Parser::new(scanner);
+        let expr = type_expr(&mut parser);
+        assert!(expr.is_some());
+        let top_tuple_expr = match expr.unwrap().node {
+            TypeExpr::Tuple(tuple_expr) => tuple_expr,
+            _ => panic!("Expected a tuple type expression."),
+        };
+        assert_eq!(top_tuple_expr.elements.len(), 3);
+        assert_eq!(top_tuple_expr.elements[0], TypeExpr::Int(IntType::I8));
+        assert_eq!(top_tuple_expr.elements[1], TypeExpr::Float(FloatType::F32));
+        assert_eq!(top_tuple_expr.elements[2], TypeExpr::Bool);
+    }
+
+    #[test]
+    fn test_function_type_expr() {
+        let scanner = Scanner::new("fn(i8, f32) -> bool");
+        let mut parser = Parser::new(scanner);
+        let expr = type_expr(&mut parser);
+        assert!(expr.is_some());
+        let top_function_expr = match expr.unwrap().node {
+            TypeExpr::Function(function_expr) => function_expr,
+            _ => panic!("Expected a function type expression."),
+        };
+        assert_eq!(top_function_expr.params.len(), 2);
+        assert_eq!(top_function_expr.params[0], TypeExpr::Int(IntType::I8));
+        assert_eq!(top_function_expr.params[1], TypeExpr::Float(FloatType::F32));
+        assert_eq!(*top_function_expr.return_type, TypeExpr::Bool);
+    }
+
     // TODO: test block_statement
     // TODO: test var_declaration
     // TODO: test function_declaration
