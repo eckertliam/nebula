@@ -140,6 +140,16 @@ fn number_expression<'a>(parser: &mut Parser<'a>) -> Option<Located<Expression>>
     }
 }
 
+fn bool_expression<'a>(parser: &mut Parser<'a>) -> Option<Located<Expression>> {
+    let line = parser.previous.line;
+    let value = match parser.previous.kind {
+        TokenKind::True => true,
+        TokenKind::False => false,
+        _ => return error_at_previous(parser, "Invalid boolean."),
+    };
+    Some(Expression::new_bool(value, line))
+}
+
 fn identifier_expression<'a>(parser: &mut Parser<'a>) -> Option<Located<Expression>> {
     let line = parser.previous.line;
     Some(Expression::new_identifier(parser.previous.lexeme.to_string(), line))
@@ -318,6 +328,16 @@ fn get_expr_parse_rule<'a>(kind: TokenKind) -> ExpressionParseRule<'a> {
             prefix: Some(group_expression),
             infix: Some(call_expression),
             precedence: Precedence::Call,
+        },
+        TokenKind::True => ExpressionParseRule {
+            prefix: Some(bool_expression),
+            infix: None,
+            precedence: Precedence::Primary,
+        },
+        TokenKind::False => ExpressionParseRule {
+            prefix: Some(bool_expression),
+            infix: None,
+            precedence: Precedence::Primary,
         },
         _ => ExpressionParseRule {
             prefix: None,
@@ -563,6 +583,20 @@ mod tests {
     }
 
     #[test]
+    fn test_bool_expression() {
+        let scanner = Scanner::new("true");
+        let mut parser = Parser::new(scanner);
+        let expr = expression(&mut parser);
+        assert!(expr.is_some());
+        assert_eq!(expr.unwrap().node, Expression::Bool(true));
+        let scanner = Scanner::new("false");
+        let mut parser = Parser::new(scanner);
+        let expr = expression(&mut parser);
+        assert!(expr.is_some());
+        assert_eq!(expr.unwrap().node, Expression::Bool(false));
+    }
+
+    #[test]
     fn test_identifier_expression() {
         let scanner = Scanner::new("x");
         let mut parser = Parser::new(scanner);
@@ -597,6 +631,30 @@ mod tests {
     }
 
     // TODO: test unary_expression
+    #[test]
+    fn test_unary_expression() {
+        let scanner = Scanner::new("-1");
+        let mut parser = Parser::new(scanner);
+        let expr = expression(&mut parser);
+        assert!(expr.is_some());
+        let top_unary_expr = match expr.unwrap().node {
+            Expression::Unary(unary_expr) => unary_expr,
+            _ => panic!("Expected a unary expression."),
+        };
+        assert_eq!(top_unary_expr.op, TokenKind::Minus);
+        assert_eq!(*top_unary_expr.expr, Expression::Integer(1));
+        let scanner = Scanner::new("!true");
+        let mut parser = Parser::new(scanner);
+        let expr = expression(&mut parser);
+        assert!(expr.is_some());
+        let top_unary_expr = match expr.unwrap().node {
+            Expression::Unary(unary_expr) => unary_expr,
+            _ => panic!("Expected a unary expression."),
+        };
+        assert_eq!(top_unary_expr.op, TokenKind::Bang);
+        assert_eq!(*top_unary_expr.expr, Expression::Bool(true));
+    }
+
     // TODO: test type_expr
     // TODO: test block_statement
     // TODO: test var_declaration
