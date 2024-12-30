@@ -511,6 +511,31 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_group_expression() {
+        let scanner = Scanner::new("(1 + 2) * 3");
+        let mut parser = Parser::new(scanner);
+        let expr = expression(&mut parser);
+        assert!(expr.is_some());
+        let top_bin_expr = match expr.unwrap().node {
+            Expression::Binary(bin_expr) => bin_expr,
+            _ => panic!("Expected a binary expression."),
+        };
+        assert_eq!(top_bin_expr.op, TokenKind::Star);
+        let lhs = match *top_bin_expr.lhs {
+            Expression::Binary(bin_expr) => bin_expr,
+            _ => panic!("Expected a binary expression."),
+        };
+        assert_eq!(lhs.op, TokenKind::Plus);
+        assert_eq!(*lhs.lhs, Expression::Integer(1));
+        assert_eq!(*lhs.rhs, Expression::Integer(2));
+        assert_eq!(*top_bin_expr.rhs, Expression::Integer(3));
+    }
+
+    // TODO: test call_expression
+    // TODO: test number_expression
+    // TODO: test identifier_expression
+
+    #[test]
     fn test_binary_expr() {
         let scanner = Scanner::new("1 + 2 * 3");
         let mut parser = Parser::new(scanner);
@@ -529,4 +554,11 @@ mod tests {
         });
         assert!(matches!(*top_bin_expr.rhs, _expected_rhs));
     }
+
+    // TODO: test unary_expression
+    // TODO: test type_expr
+    // TODO: test block_statement
+    // TODO: test var_declaration
+    // TODO: test function_declaration
+    // TODO: test expression_statement
 }
