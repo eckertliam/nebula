@@ -43,14 +43,28 @@ pub enum TypeExpr {
 }
 
 impl TypeExpr {
-    pub fn new_int(int_str: &str, line: usize) -> Located<Self> {
-        let int_type = IntType::from_str(int_str).expect("Invalid integer type");
-        Located::new(Self::Int(int_type), line)
+    pub fn new_i8(line: usize) -> Located<Self> {
+        Located::new(Self::Int(IntType::I8), line)
     }
 
-    pub fn new_float(float_str: &str, line: usize) -> Located<Self> {
-        let float_type = FloatType::from_str(float_str).expect("Invalid float type");
-        Located::new(Self::Float(float_type), line)
+    pub fn new_i16(line: usize) -> Located<Self> {
+        Located::new(Self::Int(IntType::I16), line)
+    }
+
+    pub fn new_i32(line: usize) -> Located<Self> {
+        Located::new(Self::Int(IntType::I32), line)
+    }
+
+    pub fn new_i64(line: usize) -> Located<Self> {
+        Located::new(Self::Int(IntType::I64), line)
+    }
+
+    pub fn new_f32(line: usize) -> Located<Self> {
+        Located::new(Self::Float(FloatType::F32), line)
+    }
+
+    pub fn new_f64(line: usize) -> Located<Self> {
+        Located::new(Self::Float(FloatType::F64), line)
     }
 
     pub fn new_bool(line: usize) -> Located<Self> {

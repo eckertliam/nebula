@@ -350,10 +350,16 @@ fn get_expr_parse_rule<'a>(kind: TokenKind) -> ExpressionParseRule<'a> {
 // TypeExpr parsing =====
 
 fn type_expr<'a>(parser: &mut Parser<'a>) -> Option<Located<TypeExpr>> {
+    // move to the next token
+    advance(parser);
     let line = parser.previous.line;
     match parser.previous.lexeme {
-        "i8" | "i16" | "i32" | "i64" => Some(TypeExpr::new_int(parser.previous.lexeme, line)),
-        "f32" | "f64" => Some(TypeExpr::new_float(parser.previous.lexeme, line)),
+        "i8" => Some(TypeExpr::new_i8(line)),
+        "i16" => Some(TypeExpr::new_i16(line)),
+        "i32" => Some(TypeExpr::new_i32(line)),
+        "i64" => Some(TypeExpr::new_i64(line)),
+        "f32" => Some(TypeExpr::new_f32(line)),
+        "f64" => Some(TypeExpr::new_f64(line)),
         "bool" => Some(TypeExpr::new_bool(line)),
         "string" => Some(TypeExpr::new_string(line)),
         "void" => Some(TypeExpr::new_void(line)),
@@ -384,13 +390,14 @@ fn type_expr<'a>(parser: &mut Parser<'a>) -> Option<Located<TypeExpr>> {
                 Some(TypeExpr::new_function(func_params, return_type, line))
             }
             TokenKind::LeftBracket => {
-                // advance to the next token
-                advance(parser);
+                // an array type is of the form [type; size]
                 // parse the element type
                 let element_type = match type_expr(parser) {
                     Some(element_type) => element_type.node,
                     None => return error_at_previous(parser, "Expected an element type after array type.")
                 };
+                // expect a semicolon
+                consume(parser, TokenKind::Semicolon, "Expected a semicolon after array type.")?;
                 // parse the size
                 let size = match expression(parser) {
                     Some(size) => size.node,
@@ -526,7 +533,7 @@ fn expression_statement<'a>(parser: &mut Parser<'a>) -> Option<Located<Statement
 
 #[cfg(test)]
 mod tests {
-    use crate::frontend::ast::BinaryExpr;
+    use crate::frontend::ast::{BinaryExpr, FloatType, IntType};
 
     use super::*;
 
@@ -630,7 +637,6 @@ mod tests {
         assert!(matches!(*top_bin_expr.rhs, _expected_rhs));
     }
 
-    // TODO: test unary_expression
     #[test]
     fn test_unary_expression() {
         let scanner = Scanner::new("-1");
@@ -655,7 +661,44 @@ mod tests {
         assert_eq!(*top_unary_expr.expr, Expression::Bool(true));
     }
 
-    // TODO: test type_expr
+    #[test]
+    fn test_primitive_type_expr() {
+        let scanner = Scanner::new("i8");
+        let mut parser = Parser::new(scanner);
+        let expr = type_expr(&mut parser);
+        assert!(expr.is_some());
+    }
+    
+    #[test]
+    fn test_array_type_expr() {
+        let scanner = Scanner::new("[f32; 10]");
+        let mut parser = Parser::new(scanner);
+        let expr = type_expr(&mut parser);
+        assert!(expr.is_some());
+        let top_array_expr = match expr.unwrap().node {
+            TypeExpr::Array(array_expr) => array_expr,
+            _ => panic!("Expected an array type expression."),
+        };
+        assert_eq!(*top_array_expr.element_type, TypeExpr::Float(FloatType::F32));
+        assert_eq!(*top_array_expr.size, Expression::Integer(10));
+        // test a matrix type expression
+        let scanner = Scanner::new("[[f32; 2]; 2]");
+        let mut parser = Parser::new(scanner);
+        let expr = type_expr(&mut parser);
+        assert!(expr.is_some());
+        let top_array_expr = match expr.unwrap().node {
+            TypeExpr::Array(array_expr) => array_expr,
+            _ => panic!("Expected an array type expression."),
+        };
+        assert_eq!(*top_array_expr.element_type, TypeExpr::Array(ArrayType {
+            element_type: Box::new(TypeExpr::Float(FloatType::F32)),
+            size: Box::new(Expression::Integer(2)),
+        }));
+        assert_eq!(*top_array_expr.size, Expression::Integer(2));
+    }
+
+    // TODO: test tuple type expressions
+    // TODO: test function type expressions
     // TODO: test block_statement
     // TODO: test var_declaration
     // TODO: test function_declaration
