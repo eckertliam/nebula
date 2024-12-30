@@ -547,9 +547,34 @@ mod tests {
         assert_eq!(top_call_expr.args[1], Expression::Integer(2));
         assert_eq!(top_call_expr.args[2], Expression::Integer(3));
     }
-    
-    // TODO: test number_expression
-    // TODO: test identifier_expression
+
+    #[test]
+    fn test_number_expression() {
+        let scanner = Scanner::new("123");
+        let mut parser = Parser::new(scanner);
+        let expr = expression(&mut parser);
+        assert!(expr.is_some());
+        assert_eq!(expr.unwrap().node, Expression::Integer(123));
+        let scanner = Scanner::new("123.456");
+        let mut parser = Parser::new(scanner);
+        let expr = expression(&mut parser);
+        assert!(expr.is_some());
+        assert_eq!(expr.unwrap().node, Expression::Float(123.456));
+    }
+
+    #[test]
+    fn test_identifier_expression() {
+        let scanner = Scanner::new("x");
+        let mut parser = Parser::new(scanner);
+        let expr = expression(&mut parser);
+        assert!(expr.is_some());
+        assert_eq!(expr.unwrap().node, Expression::Identifier("x".to_string()));
+        let scanner = Scanner::new("_x");
+        let mut parser = Parser::new(scanner);
+        let expr = expression(&mut parser);
+        assert!(expr.is_some());
+        assert_eq!(expr.unwrap().node, Expression::Identifier("_x".to_string()));
+    }
 
     #[test]
     fn test_binary_expr() {
