@@ -157,6 +157,7 @@ pub enum Expression {
     Unary(UnaryExpr),
     Integer(i64),
     Float(f64),
+    Bool(bool),
     Identifier(String),
     Call(CallExpr),
 }
@@ -183,6 +184,10 @@ impl Expression {
 
     pub fn new_float(value: f64, line: usize) -> Located<Self> {
         Located::new(Self::Float(value), line)
+    }
+
+    pub fn new_bool(value: bool, line: usize) -> Located<Self> {
+        Located::new(Self::Bool(value), line)
     }
 
     pub fn new_identifier(name: String, line: usize) -> Located<Self> {
