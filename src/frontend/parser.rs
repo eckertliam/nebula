@@ -531,7 +531,23 @@ mod tests {
         assert_eq!(*top_bin_expr.rhs, Expression::Integer(3));
     }
 
-    // TODO: test call_expression
+    #[test]
+    fn test_call_expression() {
+        let scanner = Scanner::new("func(1, 2, 3)");
+        let mut parser = Parser::new(scanner);
+        let expr = expression(&mut parser);
+        assert!(expr.is_some());
+        let top_call_expr = match expr.unwrap().node {
+            Expression::Call(call_expr) => call_expr,
+            _ => panic!("Expected a call expression."),
+        };
+        assert_eq!(*top_call_expr.callee, Expression::Identifier("func".to_string()));
+        assert_eq!(top_call_expr.args.len(), 3);
+        assert_eq!(top_call_expr.args[0], Expression::Integer(1));
+        assert_eq!(top_call_expr.args[1], Expression::Integer(2));
+        assert_eq!(top_call_expr.args[2], Expression::Integer(3));
+    }
+    
     // TODO: test number_expression
     // TODO: test identifier_expression
 
