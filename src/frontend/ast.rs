@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use crate::frontend::scanner::TokenKind;
 
+#[derive(Debug, PartialEq)]
 pub struct Located<T> {
     pub node: T,
     pub line: usize,
@@ -13,6 +14,7 @@ impl<T> Located<T> {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub struct Program {
     statements: Vec<Statement>,
 }
@@ -27,6 +29,7 @@ impl Program {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub enum TypeExpr {
     Int(IntType),
     Float(FloatType),
@@ -85,6 +88,7 @@ impl TypeExpr {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub enum IntType {
     I8,
     I16,
@@ -106,6 +110,7 @@ impl FromStr for IntType {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub enum FloatType {
     F32,
     F64,
@@ -123,25 +128,30 @@ impl FromStr for FloatType {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub struct ArrayType {
     pub element_type: Box<TypeExpr>,
     pub size: Box<Expression>,
 }
 
+#[derive(Debug, PartialEq)]
 pub struct TupleType {
     pub elements: Vec<TypeExpr>,
 }
 
+#[derive(Debug, PartialEq)]
 pub struct FunctionType {
     pub params: Vec<TypeExpr>,
     pub return_type: Box<TypeExpr>,
 }
 
+#[derive(Debug, PartialEq)]
 pub struct UdtType {
     pub name: String,
     pub type_vars: Vec<TypeExpr>,
 }
 
+#[derive(Debug, PartialEq)]
 pub enum Expression {
     Binary(BinaryExpr),
     Unary(UnaryExpr),
@@ -187,6 +197,7 @@ impl Expression {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub enum Statement {
     ExpressionStmt(Expression),
     ConstDecl(ConstDecl),
@@ -217,22 +228,26 @@ impl Statement {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub struct Block {
     pub statements: Vec<Located<Statement>>,
 }
 
+#[derive(Debug, PartialEq)]
 pub struct ConstDecl {
     pub name: String,
     pub ty: Option<TypeExpr>,
     pub value: Expression,
 }
 
+#[derive(Debug, PartialEq)]
 pub struct LetDecl {
     pub name: String,
     pub ty: Option<TypeExpr>,
     pub value: Expression,
 }
 
+#[derive(Debug, PartialEq)]
 pub struct FunctionDecl {
     pub name: String,
     pub params: Vec<(String, TypeExpr)>,
@@ -240,17 +255,20 @@ pub struct FunctionDecl {
     pub body: Block,
 }
 
+#[derive(Debug, PartialEq)]
 pub struct BinaryExpr {
     pub lhs: Box<Expression>,
     pub op: TokenKind,
     pub rhs: Box<Expression>,
 }
 
+#[derive(Debug, PartialEq)]
 pub struct UnaryExpr {
     pub op: TokenKind,
     pub expr: Box<Expression>,
 }
 
+#[derive(Debug, PartialEq)]
 pub struct CallExpr {
     pub callee: Box<Expression>,
     pub args: Vec<Expression>,
