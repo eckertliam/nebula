@@ -130,14 +130,35 @@ fn call_expression<'a>(parser: &mut Parser<'a>, callee: Located<Expression>) -> 
 
 fn number_expression<'a>(parser: &mut Parser<'a>) -> Option<Located<Expression>> {
     let line = parser.previous.line;
-    // determine if the number is an integer or a float
+    // determine if the number is an integer, unsigned integer, or float
     if let Ok(i) = parser.previous.lexeme.parse::<i64>() {
         Some(Expression::new_integer(i, line))
+    } else if let Ok(u) = parser.previous.lexeme.parse::<u64>() {
+        Some(Expression::new_unsigned_integer(u, line))
     } else if let Ok(f) = parser.previous.lexeme.parse::<f64>() {
         Some(Expression::new_float(f, line))
     } else {
         error_at_previous(parser, "Invalid number.")
     }
+}
+
+fn string_expression<'a>(parser: &mut Parser<'a>) -> Option<Located<Expression>> {
+    let line = parser.previous.line;
+    let value = parser.previous.lexeme.to_string();
+    // slice the first and last character
+    let value = &value[1..value.len() - 1];
+    Some(Expression::new_string(value.to_string(), line))
+}
+
+fn char_expression<'a>(parser: &mut Parser<'a>) -> Option<Located<Expression>> {
+    let line = parser.previous.line;
+    // check if the character is valid
+    // TODO: handle escape characters
+    if parser.previous.lexeme.len() != 3 {
+        return error_at_previous(parser, "Invalid character.");
+    }
+    let value = parser.previous.lexeme.chars().nth(1).unwrap();
+    Some(Expression::new_char(value, line))
 }
 
 fn bool_expression<'a>(parser: &mut Parser<'a>) -> Option<Located<Expression>> {
@@ -316,6 +337,16 @@ fn get_expr_parse_rule<'a>(kind: TokenKind) -> ExpressionParseRule<'a> {
         },
         TokenKind::Number => ExpressionParseRule {
             prefix: Some(number_expression),
+            infix: None,
+            precedence: Precedence::Primary,
+        },
+        TokenKind::Char => ExpressionParseRule {
+            prefix: Some(char_expression),
+            infix: None,
+            precedence: Precedence::Primary,
+        },
+        TokenKind::String => ExpressionParseRule {
+            prefix: Some(string_expression),
             infix: None,
             precedence: Precedence::Primary,
         },
@@ -630,6 +661,24 @@ mod tests {
         let expr = expression(&mut parser);
         assert!(expr.is_some());
         assert_eq!(expr.unwrap().node, Expression::Float(123.456));
+    }
+
+    #[test]
+    fn test_char_expression() {
+        let scanner = Scanner::new("'a'");
+        let mut parser = Parser::new(scanner);
+        let expr = expression(&mut parser);
+        assert!(expr.is_some());
+        assert_eq!(expr.unwrap().node, Expression::Char('a'));
+    }
+
+    #[test]
+    fn test_string_expression() {
+        let scanner = Scanner::new("\"hello\"");
+        let mut parser = Parser::new(scanner);
+        let expr = expression(&mut parser);
+        assert!(expr.is_some());
+        assert_eq!(expr.unwrap().node, Expression::String("hello".to_string()));
     }
 
     #[test]

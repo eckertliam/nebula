@@ -46,6 +46,7 @@ pub enum TokenKind {
     // Literals
     Number,
     String,
+    Char,
     Identifier,
     // Special
     Eof,
@@ -204,6 +205,16 @@ impl<'a> Scanner<'a> {
         self.make_token(TokenKind::String)
     }
 
+    fn scan_char(&mut self) -> Token<'a> {
+        while let Some(ch) = self.advance() {
+            if ch == '\'' {
+                break;
+            }
+        }
+
+        self.make_token(TokenKind::Char)
+    }
+
     pub fn scan_token(&mut self) -> Token<'a> {
         self.skip_whitespace();
         self.start = self.current;
@@ -275,6 +286,7 @@ impl<'a> Scanner<'a> {
                     }
                 }
                 '"' => self.scan_string(),
+                '\'' => self.scan_char(),
                 c if c.is_alphabetic() || c == '_' => self.scan_identifier(),
                 c if c.is_digit(10) => self.scan_number(),
                 _ => self.error_token("Unexpected character"),
@@ -347,6 +359,16 @@ mod tests {
         assert_eq!(token2.kind, TokenKind::String);
         assert_eq!(token2.lexeme, "\"multi\nline\"");
         assert_eq!(token2.line, 2);
+    }
+
+    #[test]
+    fn test_chars() {
+        let mut scanner = Scanner::new("'a' 'b'");
+        assert_tokens!(scanner, [
+            (TokenKind::Char, "'a'"),
+            (TokenKind::Char, "'b'"),
+            (TokenKind::Eof, ""),
+        ]);
     }
 
     #[test]

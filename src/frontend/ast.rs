@@ -169,6 +169,9 @@ pub enum Expression {
     Binary(BinaryExpr),
     Unary(UnaryExpr),
     Integer(i64),
+    UnsignedInteger(u64),
+    Char(char),
+    String(String),
     Float(f64),
     Bool(bool),
     Identifier(String),
@@ -193,6 +196,18 @@ impl Expression {
 
     pub fn new_integer(value: i64, line: usize) -> Located<Self> {
         Located::new(Self::Integer(value), line)
+    }
+
+    pub fn new_unsigned_integer(value: u64, line: usize) -> Located<Self> {
+        Located::new(Self::UnsignedInteger(value), line)
+    }
+
+    pub fn new_char(value: char, line: usize) -> Located<Self> {
+        Located::new(Self::Char(value), line)
+    }
+
+    pub fn new_string(value: String, line: usize) -> Located<Self> {
+        Located::new(Self::String(value), line)
     }
 
     pub fn new_float(value: f64, line: usize) -> Located<Self> {
