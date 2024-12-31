@@ -728,7 +728,7 @@ mod tests {
         assert_eq!(top_function_expr.params[1], TypeExpr::Float(FloatType::F32));
         assert_eq!(*top_function_expr.return_type, TypeExpr::Bool);
     }
-    
+
     #[test]
     fn test_block_statement() {
         let scanner = Scanner::new("{ let x = 1; x + 2; }");
@@ -752,7 +752,32 @@ mod tests {
         })));
     }
     
-    // TODO: test var_declaration
+    #[test]
+    fn test_var_declaration() {
+        let scanner = Scanner::new("let y: f32 = 3.14;");
+        let mut parser = Parser::new(scanner);
+        let stmt = statement(&mut parser);
+        assert!(stmt.is_some());
+        let var_decl = match stmt.unwrap().node {
+            Statement::LetDecl(var_decl) => var_decl,
+            _ => panic!("Expected a variable declaration."),
+        };
+        assert_eq!(var_decl.name, "y".to_string());
+        assert_eq!(var_decl.ty, Some(TypeExpr::Float(FloatType::F32)));
+        assert_eq!(var_decl.value, Expression::Float(3.14));
+        let scanner = Scanner::new("const t: bool = true;");
+        let mut parser = Parser::new(scanner);
+        let stmt = statement(&mut parser);
+        assert!(stmt.is_some());
+        let var_decl = match stmt.unwrap().node {
+            Statement::ConstDecl(var_decl) => var_decl,
+            _ => panic!("Expected a variable declaration."),
+        };
+        assert_eq!(var_decl.name, "t".to_string());
+        assert_eq!(var_decl.ty, Some(TypeExpr::Bool));
+        assert_eq!(var_decl.value, Expression::Bool(true));
+    }
+
     // TODO: test function_declaration
     // TODO: test expression_statement
 }
