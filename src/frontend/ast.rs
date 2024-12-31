@@ -34,6 +34,7 @@ pub enum TypeExpr {
     Int(IntType),
     Float(FloatType),
     Bool,
+    Char,
     String,
     Void,
     Array(ArrayType),
@@ -59,6 +60,22 @@ impl TypeExpr {
         Located::new(Self::Int(IntType::I64), line)
     }
 
+    pub fn new_u8(line: usize) -> Located<Self> {
+        Located::new(Self::Int(IntType::U8), line)
+    }
+
+    pub fn new_u16(line: usize) -> Located<Self> {
+        Located::new(Self::Int(IntType::U16), line)
+    }
+
+    pub fn new_u32(line: usize) -> Located<Self> {
+        Located::new(Self::Int(IntType::U32), line)
+    }
+
+    pub fn new_u64(line: usize) -> Located<Self> {
+        Located::new(Self::Int(IntType::U64), line)
+    }
+
     pub fn new_f32(line: usize) -> Located<Self> {
         Located::new(Self::Float(FloatType::F32), line)
     }
@@ -69,6 +86,10 @@ impl TypeExpr {
 
     pub fn new_bool(line: usize) -> Located<Self> {
         Located::new(Self::Bool, line)
+    }
+
+    pub fn new_char(line: usize) -> Located<Self> {
+        Located::new(Self::Char, line)
     }
 
     pub fn new_string(line: usize) -> Located<Self> {
@@ -108,38 +129,16 @@ pub enum IntType {
     I16,
     I32,
     I64,
-}
-
-impl FromStr for IntType {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "i8" => Ok(IntType::I8),
-            "i16" => Ok(IntType::I16),
-            "i32" => Ok(IntType::I32),
-            "i64" => Ok(IntType::I64),
-            _ => Err(()),
-        }
-    }
+    U8,
+    U16,
+    U32,
+    U64,
 }
 
 #[derive(Debug, PartialEq)]
 pub enum FloatType {
     F32,
     F64,
-}
-
-impl FromStr for FloatType {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "f32" => Ok(FloatType::F32),
-            "f64" => Ok(FloatType::F64),
-            _ => Err(()),
-        }
-    }
 }
 
 #[derive(Debug, PartialEq)]
