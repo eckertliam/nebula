@@ -559,7 +559,7 @@ fn return_statement<'a>(parser: &mut Parser<'a>) -> Option<Located<Statement>> {
 
 // top level parsing =====
 
-fn parse<'a>(src: &str) -> Option<Program> {
+pub fn parse<'a>(src: &str) -> Option<Program> {
     let scanner = Scanner::new(src);
     let mut parser = Parser::new(scanner);
     let mut program = Program::new();
