@@ -835,5 +835,42 @@ mod tests {
         assert_eq!(function_decl.body.statements.len(), 1);
     }
 
-    // TODO: test expression_statement
+    #[test]
+    fn test_expression_statement() {
+        let scanner = Scanner::new("x + 1;");
+        let mut parser = Parser::new(scanner);
+        let stmt = statement(&mut parser);
+        assert!(stmt.is_some());
+        let expr_stmt = match stmt.unwrap().node {
+            Statement::ExpressionStmt(expr_stmt) => expr_stmt,
+            _ => panic!("Expected an expression statement."),
+        };
+        assert_eq!(expr_stmt, Expression::Binary(BinaryExpr {
+            op: TokenKind::Plus,
+            lhs: Box::new(Expression::Identifier("x".to_string())),
+            rhs: Box::new(Expression::Integer(1)),
+        }));
+    }
+
+    #[test]
+    fn test_return_statement() {
+        let scanner = Scanner::new("return 1;");
+        let mut parser = Parser::new(scanner);
+        let stmt = statement(&mut parser);
+        assert!(stmt.is_some());
+        let return_stmt = match stmt.unwrap().node {
+            Statement::ReturnStmt(return_stmt) => return_stmt,
+            _ => panic!("Expected a return statement."),
+        };
+        assert_eq!(return_stmt, Some(Expression::Integer(1)));
+        let scanner = Scanner::new("return;");
+        let mut parser = Parser::new(scanner);
+        let stmt = statement(&mut parser);
+        assert!(stmt.is_some());
+        let return_stmt = match stmt.unwrap().node {
+            Statement::ReturnStmt(return_stmt) => return_stmt,
+            _ => panic!("Expected a return statement."),
+        };
+        assert_eq!(return_stmt, None);
+    }
 }
