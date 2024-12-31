@@ -465,6 +465,8 @@ fn var_declaration<'a>(parser: &mut Parser<'a>, is_const: bool) -> Option<Locate
     // advance over the let or const keyword
     advance(parser);
     let line = parser.previous.line;
+    // advance over the identifier
+    advance(parser);
     // parse the name
     let name = parser.previous.lexeme.to_string();
     // check for a colon indicating a type annotation
@@ -531,7 +533,7 @@ fn expression_statement<'a>(parser: &mut Parser<'a>) -> Option<Located<Statement
 
 #[cfg(test)]
 mod tests {
-    use crate::frontend::ast::{BinaryExpr, FloatType, IntType};
+    use crate::frontend::ast::{BinaryExpr, FloatType, IntType, LetDecl};
 
     use super::*;
 
@@ -726,8 +728,30 @@ mod tests {
         assert_eq!(top_function_expr.params[1], TypeExpr::Float(FloatType::F32));
         assert_eq!(*top_function_expr.return_type, TypeExpr::Bool);
     }
-
-    // TODO: test block_statement
+    
+    #[test]
+    fn test_block_statement() {
+        let scanner = Scanner::new("{ let x = 1; x + 2; }");
+        let mut parser = Parser::new(scanner);
+        let stmt = statement(&mut parser);
+        assert!(stmt.is_some());
+        let block_stmt = match stmt.unwrap().node {
+            Statement::Block(block_stmt) => block_stmt,
+            _ => panic!("Expected a block statement."),
+        };
+        assert_eq!(block_stmt.statements.len(), 2);
+        assert_eq!(block_stmt.statements[0].node, Statement::LetDecl(LetDecl {
+            name: "x".to_string(),
+            ty: None,
+            value: Expression::Integer(1),
+        }));
+        assert_eq!(block_stmt.statements[1].node, Statement::ExpressionStmt(Expression::Binary(BinaryExpr {
+            op: TokenKind::Plus,
+            lhs: Box::new(Expression::Identifier("x".to_string())),
+            rhs: Box::new(Expression::Integer(2)),
+        })));
+    }
+    
     // TODO: test var_declaration
     // TODO: test function_declaration
     // TODO: test expression_statement
