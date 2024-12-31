@@ -436,6 +436,7 @@ fn statement<'a>(parser: &mut Parser<'a>) -> Option<Located<Statement>> {
         TokenKind::Const => var_declaration(parser, true),
         TokenKind::Fn => function_declaration(parser),
         TokenKind::LeftBrace => block_statement(parser),
+        TokenKind::Return => return_statement(parser),
         _ => expression_statement(parser),
     }
 }
@@ -493,12 +494,18 @@ fn function_declaration<'a>(parser: &mut Parser<'a>) -> Option<Located<Statement
     // advance over the fn keyword
     advance(parser);
     let line = parser.previous.line;
+    // advance over the function name
+    advance(parser);
     // parse the name
     let name = parser.previous.lexeme.to_string();
     // parse the parameters
     let params = parse_function_params(parser)?;
-    // parse the return type
-    let return_type = type_expr(parser)?.node;
+    // if there is an arrow, parse the return type
+    let return_type = if match_token(parser, TokenKind::Arrow) {
+        Some(type_expr(parser)?.node)
+    } else {
+        None
+    };
     // parse the body
     let body = block(parser)?;
     Some(Statement::new_function_decl(name, params, return_type, body, line))
@@ -511,7 +518,12 @@ fn parse_function_params<'a>(parser: &mut Parser<'a>) -> Option<Vec<(String, Typ
     let mut params = Vec::new();
     if !check_token(parser, TokenKind::RightParen) {
         loop {
+            // advance over the identifier
+            advance(parser);
             let name = parser.previous.lexeme.to_string();
+            // skip the colon
+            consume(parser, TokenKind::Colon, "Expected a colon after function parameter.")?;
+            // parse the type
             let ty = type_expr(parser)?.node;
             params.push((name, ty));
             if !match_token(parser, TokenKind::Comma) {
@@ -529,6 +541,20 @@ fn expression_statement<'a>(parser: &mut Parser<'a>) -> Option<Located<Statement
     let expr = expression(parser)?.node;
     consume(parser, TokenKind::Semicolon, "Expected a semicolon after expression statement.")?;
     Some(Statement::new_expression_stmt(expr, line))
+}
+
+fn return_statement<'a>(parser: &mut Parser<'a>) -> Option<Located<Statement>> {
+    // advance over the return keyword
+    advance(parser);
+    let line = parser.previous.line;
+    // if there is an expression, parse it
+    if match_token(parser, TokenKind::Semicolon) {
+        Some(Statement::new_return_stmt(None, line))
+    } else {
+        let expr = expression(parser)?.node;
+        consume(parser, TokenKind::Semicolon, "Expected a semicolon after return statement.")?;
+        Some(Statement::new_return_stmt(Some(expr), line))
+    }
 }
 
 #[cfg(test)]
@@ -779,5 +805,35 @@ mod tests {
     }
 
     // TODO: test function_declaration
+    #[test]
+    fn test_function_declaration() {
+        let scanner = Scanner::new("fn main() { let x = 1; }");
+        let mut parser = Parser::new(scanner);
+        let stmt = statement(&mut parser);
+        assert!(stmt.is_some());
+        let function_decl = match stmt.unwrap().node {
+            Statement::FunctionDecl(function_decl) => function_decl,
+            _ => panic!("Expected a function declaration."),
+        };
+        assert_eq!(function_decl.name, "main".to_string());
+        assert_eq!(function_decl.params.len(), 0);
+        assert_eq!(function_decl.return_ty, None);
+        assert_eq!(function_decl.body.statements.len(), 1);
+        let scanner = Scanner::new("fn add(x: f32, y: f32) -> f32 { return x + y; }");
+        let mut parser = Parser::new(scanner);
+        let stmt = statement(&mut parser);
+        assert!(stmt.is_some());
+        let function_decl = match stmt.unwrap().node {
+            Statement::FunctionDecl(function_decl) => function_decl,
+            _ => panic!("Expected a function declaration."),
+        };
+        assert_eq!(function_decl.name, "add".to_string());
+        assert_eq!(function_decl.params.len(), 2);
+        assert_eq!(function_decl.params[0], ("x".to_string(), TypeExpr::Float(FloatType::F32)));
+        assert_eq!(function_decl.params[1], ("y".to_string(), TypeExpr::Float(FloatType::F32)));
+        assert_eq!(function_decl.return_ty, Some(TypeExpr::Float(FloatType::F32)));
+        assert_eq!(function_decl.body.statements.len(), 1);
+    }
+
     // TODO: test expression_statement
 }

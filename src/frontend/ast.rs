@@ -223,6 +223,7 @@ pub enum Statement {
     LetDecl(LetDecl),
     Block(Block),
     FunctionDecl(FunctionDecl),
+    ReturnStmt(Option<Expression>),
 }
 
 impl Statement {
@@ -242,8 +243,12 @@ impl Statement {
         Located::new(Self::Block(block), line)
     }
 
-    pub fn new_function_decl(name: String, params: Vec<(String, TypeExpr)>, return_ty: TypeExpr, body: Block, line: usize) -> Located<Self> {
+    pub fn new_function_decl(name: String, params: Vec<(String, TypeExpr)>, return_ty: Option<TypeExpr>, body: Block, line: usize) -> Located<Self> {
         Located::new(Self::FunctionDecl(FunctionDecl { name, params, return_ty, body }), line)
+    }
+
+    pub fn new_return_stmt(expr: Option<Expression>, line: usize) -> Located<Self> {
+        Located::new(Self::ReturnStmt(expr), line)
     }
 }
 
@@ -270,7 +275,7 @@ pub struct LetDecl {
 pub struct FunctionDecl {
     pub name: String,
     pub params: Vec<(String, TypeExpr)>,
-    pub return_ty: TypeExpr,
+    pub return_ty: Option<TypeExpr>,
     pub body: Block,
 }
 
