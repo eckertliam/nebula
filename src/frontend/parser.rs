@@ -9,7 +9,6 @@ pub struct Parser<'a> {
     pub previous: Token<'a>,
     pub had_error: bool,
     pub panic_mode: bool,
-    pub program: Program,
 }
 
 impl<'a> Parser<'a> {
@@ -20,7 +19,6 @@ impl<'a> Parser<'a> {
             previous: Token::default(),
             had_error: false,
             panic_mode: false,
-            program: Program::new(),
         };
         // advance to the first token
         advance(&mut parser);
@@ -125,6 +123,8 @@ fn call_expression<'a>(parser: &mut Parser<'a>, callee: Located<Expression>) -> 
             }
         }
     }
+    // consume the closing parenthesis
+    consume(parser, TokenKind::RightParen, "Expected a closing parenthesis after function call.")?;
     Some(Expression::new_call(callee.node, args, callee.line))
 }
 
@@ -557,6 +557,18 @@ fn return_statement<'a>(parser: &mut Parser<'a>) -> Option<Located<Statement>> {
     }
 }
 
+// top level parsing =====
+
+fn parse<'a>(src: &str) -> Option<Program> {
+    let scanner = Scanner::new(src);
+    let mut parser = Parser::new(scanner);
+    let mut program = Program::new();
+    while parser.current.kind != TokenKind::Eof {
+        program.add_statement(statement(&mut parser)?);
+    }
+    Some(program)
+}
+
 #[cfg(test)]
 mod tests {
     use crate::frontend::ast::{BinaryExpr, FloatType, IntType, LetDecl};
@@ -804,7 +816,6 @@ mod tests {
         assert_eq!(var_decl.value, Expression::Bool(true));
     }
 
-    // TODO: test function_declaration
     #[test]
     fn test_function_declaration() {
         let scanner = Scanner::new("fn main() { let x = 1; }");
@@ -872,5 +883,12 @@ mod tests {
             _ => panic!("Expected a return statement."),
         };
         assert_eq!(return_stmt, None);
+    }
+
+    #[test]
+    fn test_parse_program() {
+        let src = "fn add(l: i8, r: i8) -> i8 { return l + r; }\nfn main() { let x = add(1, 2); }";
+        let program = parse(src).unwrap();
+        assert_eq!(program.statements.len(), 2);
     }
 }

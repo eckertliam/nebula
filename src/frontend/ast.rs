@@ -16,7 +16,7 @@ impl<T> Located<T> {
 
 #[derive(Debug, PartialEq)]
 pub struct Program {
-    statements: Vec<Statement>,
+    pub statements: Vec<Located<Statement>>,
 }
 
 impl Program {
@@ -24,7 +24,7 @@ impl Program {
         Self { statements: Vec::new() }
     }
 
-    pub fn add_statement(&mut self, statement: Statement) {
+    pub fn add_statement(&mut self, statement: Located<Statement>) {
         self.statements.push(statement);
     }
 }
