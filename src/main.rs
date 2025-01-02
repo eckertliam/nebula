@@ -1,4 +1,5 @@
 mod frontend;
+mod ir;
 mod passes;
 
 use std::fs;

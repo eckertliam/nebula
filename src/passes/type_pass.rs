@@ -1,4 +1,4 @@
-use crate::{Type, TypeEnv, TypeVarGen};
+use crate::ir::{Type, TypeEnv, TypeVarGen};
 
 /// Applied to IR nodes to infer and type check them
 pub trait Typeable {

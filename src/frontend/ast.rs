@@ -1,6 +1,6 @@
 use crate::frontend::scanner::TokenKind;
 
-use super::types::Type;
+use crate::ir::Type;
 
 #[derive(Debug, PartialEq)]
 pub struct Located<T> {

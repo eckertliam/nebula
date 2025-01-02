@@ -2,7 +2,7 @@ use crate::frontend::scanner::TokenKind;
 
 use super::scanner::{Scanner, Token};
 use super::ast::{Block, Expression, Located, Program, Statement};
-use super::types::{Type, TypeVarGen};
+use crate::ir::{Type, TypeVarGen};
 
 pub struct Parser<'a> {
     pub scanner: Scanner<'a>,
