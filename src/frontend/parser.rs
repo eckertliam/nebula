@@ -1,7 +1,8 @@
 use crate::frontend::scanner::TokenKind;
 
 use super::scanner::{Scanner, Token};
-use super::ast::{ArrayType, Block, Expression, FunctionType, Located, Program, Statement, TupleType, TypeExpr};
+use super::ast::{Block, Expression, Located, Program, Statement};
+use super::types::{Type, TypeVarGen};
 
 pub struct Parser<'a> {
     pub scanner: Scanner<'a>,
@@ -9,6 +10,7 @@ pub struct Parser<'a> {
     pub previous: Token<'a>,
     pub had_error: bool,
     pub panic_mode: bool,
+    pub type_var_gen: TypeVarGen,
 }
 
 impl<'a> Parser<'a> {
@@ -19,6 +21,7 @@ impl<'a> Parser<'a> {
             previous: Token::default(),
             had_error: false,
             panic_mode: false,
+            type_var_gen: TypeVarGen::new(),
         };
         // advance to the first token
         advance(&mut parser);
@@ -130,14 +133,35 @@ fn call_expression<'a>(parser: &mut Parser<'a>, callee: Located<Expression>) -> 
 
 fn number_expression<'a>(parser: &mut Parser<'a>) -> Option<Located<Expression>> {
     let line = parser.previous.line;
-    // determine if the number is an integer or a float
+    // determine if the number is an integer, unsigned integer, or float
     if let Ok(i) = parser.previous.lexeme.parse::<i64>() {
         Some(Expression::new_integer(i, line))
+    } else if let Ok(u) = parser.previous.lexeme.parse::<u64>() {
+        Some(Expression::new_unsigned_integer(u, line))
     } else if let Ok(f) = parser.previous.lexeme.parse::<f64>() {
         Some(Expression::new_float(f, line))
     } else {
         error_at_previous(parser, "Invalid number.")
     }
+}
+
+fn string_expression<'a>(parser: &mut Parser<'a>) -> Option<Located<Expression>> {
+    let line = parser.previous.line;
+    let value = parser.previous.lexeme.to_string();
+    // slice the first and last character
+    let value = &value[1..value.len() - 1];
+    Some(Expression::new_string(value.to_string(), line))
+}
+
+fn char_expression<'a>(parser: &mut Parser<'a>) -> Option<Located<Expression>> {
+    let line = parser.previous.line;
+    // check if the character is valid
+    // TODO: handle escape characters
+    if parser.previous.lexeme.len() != 3 {
+        return error_at_previous(parser, "Invalid character.");
+    }
+    let value = parser.previous.lexeme.chars().nth(1).unwrap();
+    Some(Expression::new_char(value, line))
 }
 
 fn bool_expression<'a>(parser: &mut Parser<'a>) -> Option<Located<Expression>> {
@@ -319,6 +343,16 @@ fn get_expr_parse_rule<'a>(kind: TokenKind) -> ExpressionParseRule<'a> {
             infix: None,
             precedence: Precedence::Primary,
         },
+        TokenKind::Char => ExpressionParseRule {
+            prefix: Some(char_expression),
+            infix: None,
+            precedence: Precedence::Primary,
+        },
+        TokenKind::String => ExpressionParseRule {
+            prefix: Some(string_expression),
+            infix: None,
+            precedence: Precedence::Primary,
+        },
         TokenKind::Identifier => ExpressionParseRule {
             prefix: Some(identifier_expression),
             infix: None,
@@ -349,20 +383,24 @@ fn get_expr_parse_rule<'a>(kind: TokenKind) -> ExpressionParseRule<'a> {
 
 // TypeExpr parsing =====
 
-fn type_expr<'a>(parser: &mut Parser<'a>) -> Option<Located<TypeExpr>> {
+fn type_expr<'a>(parser: &mut Parser<'a>) -> Option<Type> {
     // move to the next token
     advance(parser);
-    let line = parser.previous.line;
     match parser.previous.lexeme {
-        "i8" => Some(TypeExpr::new_i8(line)),
-        "i16" => Some(TypeExpr::new_i16(line)),
-        "i32" => Some(TypeExpr::new_i32(line)),
-        "i64" => Some(TypeExpr::new_i64(line)),
-        "f32" => Some(TypeExpr::new_f32(line)),
-        "f64" => Some(TypeExpr::new_f64(line)),
-        "bool" => Some(TypeExpr::new_bool(line)),
-        "string" => Some(TypeExpr::new_string(line)),
-        "void" => Some(TypeExpr::new_void(line)),
+        "i8" => Some(Type::I8),
+        "i16" => Some(Type::I16),
+        "i32" => Some(Type::I32),
+        "i64" => Some(Type::I64),
+        "u8" => Some(Type::U8),
+        "u16" => Some(Type::U16),
+        "u32" => Some(Type::U32),
+        "u64" => Some(Type::U64),
+        "f32" => Some(Type::F32),
+        "f64" => Some(Type::F64),
+        "bool" => Some(Type::Bool),
+        "char" => Some(Type::Char),
+        "string" => Some(Type::String),
+        "void" => Some(Type::Void),
         _ => match parser.previous.kind {
             TokenKind::Fn => {
                 let mut func_params = Vec::new();
@@ -370,7 +408,7 @@ fn type_expr<'a>(parser: &mut Parser<'a>) -> Option<Located<TypeExpr>> {
                 if !check_token(parser, TokenKind::RightParen) {
                     loop {
                         match type_expr(parser) {
-                            Some(param) => func_params.push(param.node),
+                            Some(param) => func_params.push(param),
                             None => return error_at_previous(parser, "Expected a parameter type after function type.")
                         }
                         if !match_token(parser, TokenKind::Comma) {
@@ -379,39 +417,42 @@ fn type_expr<'a>(parser: &mut Parser<'a>) -> Option<Located<TypeExpr>> {
                     }
                 }
                 consume(parser, TokenKind::RightParen, "Expected a right parenthesis after function type.")?;
-                let return_type = {
-                    let rt = match match_token(parser, TokenKind::Arrow) {
-                        true => type_expr(parser)?,
-                        false => TypeExpr::new_void(line),
-                    };
-                    rt.node
-                };
-                Some(TypeExpr::new_function(func_params, return_type, line))
+                // expect an arrow
+                consume(parser, TokenKind::Arrow, "Expected an arrow after function type.")?;
+                // parse the return type
+                let return_type = type_expr(parser)?;
+                Some(Type::Function {
+                    params: func_params,
+                    return_type: Box::new(return_type),
+                })
             }
             TokenKind::LeftBracket => {
                 // an array type is of the form [type; size]
                 // parse the element type
                 let element_type = match type_expr(parser) {
-                    Some(element_type) => element_type.node,
+                    Some(element_type) => element_type,
                     None => return error_at_previous(parser, "Expected an element type after array type.")
                 };
                 // expect a semicolon
                 consume(parser, TokenKind::Semicolon, "Expected a semicolon after array type.")?;
                 // parse the size
                 let size = match expression(parser) {
-                    Some(size) => size.node,
+                    Some(size) => 0,// TODO: eval size at compile time
                     None => return error_at_previous(parser, "Expected a size after array type.")
                 };
                 // consume the closing bracket
                 consume(parser, TokenKind::RightBracket, "Expected a right bracket after array type.")?;
-                Some(TypeExpr::new_array(element_type, size, line))
+                Some(Type::Array {
+                    element_type: Box::new(element_type),
+                    size,
+                })
             }
             TokenKind::LeftParen => {
                 let mut tuple_type = Vec::new();
                 if !check_token(parser, TokenKind::RightParen) {
                     loop {
                         match type_expr(parser) {
-                            Some(element) => tuple_type.push(element.node),
+                            Some(element) => tuple_type.push(element),
                             None => return error_at_previous(parser, "Expected a type after tuple type.")
                         }
                         if !match_token(parser, TokenKind::Comma) {
@@ -420,7 +461,7 @@ fn type_expr<'a>(parser: &mut Parser<'a>) -> Option<Located<TypeExpr>> {
                     }
                 }
                 consume(parser, TokenKind::RightParen, "Expected a right parenthesis after tuple type.")?;
-                Some(TypeExpr::new_tuple(tuple_type, line))
+                Some(Type::Tuple(tuple_type))
             }
             _ => error_at_previous(parser, "Expected a valid type."),
         },
@@ -473,9 +514,10 @@ fn var_declaration<'a>(parser: &mut Parser<'a>, is_const: bool) -> Option<Locate
     // check for a colon indicating a type annotation
     let ty = if match_token(parser, TokenKind::Colon) {
         // parse the type if there is none provided return out of the fn with None
-        Some(type_expr(parser)?.node)
+        type_expr(parser)?
     } else {
-        None
+        // generate a type variable for substitution during type inference
+        Type::TypeVar(parser.type_var_gen.next())
     };
     // expect an equals sign
     consume(parser, TokenKind::Eq, "Expected an equals sign after variable declaration.")?;
@@ -502,16 +544,16 @@ fn function_declaration<'a>(parser: &mut Parser<'a>) -> Option<Located<Statement
     let params = parse_function_params(parser)?;
     // if there is an arrow, parse the return type
     let return_type = if match_token(parser, TokenKind::Arrow) {
-        Some(type_expr(parser)?.node)
+        type_expr(parser)?
     } else {
-        None
+        Type::Void
     };
     // parse the body
     let body = block(parser)?;
     Some(Statement::new_function_decl(name, params, return_type, body, line))
 }
 
-fn parse_function_params<'a>(parser: &mut Parser<'a>) -> Option<Vec<(String, TypeExpr)>> {
+fn parse_function_params<'a>(parser: &mut Parser<'a>) -> Option<Vec<(String, Type)>> {
     // expect a left parenthesis
     consume(parser, TokenKind::LeftParen, "Expected a left parenthesis after function declaration.")?;
     // parse the parameters
@@ -524,7 +566,7 @@ fn parse_function_params<'a>(parser: &mut Parser<'a>) -> Option<Vec<(String, Typ
             // skip the colon
             consume(parser, TokenKind::Colon, "Expected a colon after function parameter.")?;
             // parse the type
-            let ty = type_expr(parser)?.node;
+            let ty = type_expr(parser)?;
             params.push((name, ty));
             if !match_token(parser, TokenKind::Comma) {
                 break;
@@ -571,7 +613,7 @@ pub fn parse<'a>(src: &str) -> Option<Program> {
 
 #[cfg(test)]
 mod tests {
-    use crate::frontend::ast::{BinaryExpr, FloatType, IntType, LetDecl};
+    use crate::frontend::ast::{BinaryExpr, LetDecl};
 
     use super::*;
 
@@ -625,6 +667,24 @@ mod tests {
         let expr = expression(&mut parser);
         assert!(expr.is_some());
         assert_eq!(expr.unwrap().node, Expression::Float(123.456));
+    }
+
+    #[test]
+    fn test_char_expression() {
+        let scanner = Scanner::new("'a'");
+        let mut parser = Parser::new(scanner);
+        let expr = expression(&mut parser);
+        assert!(expr.is_some());
+        assert_eq!(expr.unwrap().node, Expression::Char('a'));
+    }
+
+    #[test]
+    fn test_string_expression() {
+        let scanner = Scanner::new("\"hello\"");
+        let mut parser = Parser::new(scanner);
+        let expr = expression(&mut parser);
+        assert!(expr.is_some());
+        assert_eq!(expr.unwrap().node, Expression::String("hello".to_string()));
     }
 
     #[test]
@@ -713,26 +773,24 @@ mod tests {
         let mut parser = Parser::new(scanner);
         let expr = type_expr(&mut parser);
         assert!(expr.is_some());
-        let top_array_expr = match expr.unwrap().node {
-            TypeExpr::Array(array_expr) => array_expr,
-            _ => panic!("Expected an array type expression."),
-        };
-        assert_eq!(*top_array_expr.element_type, TypeExpr::Float(FloatType::F32));
-        assert_eq!(*top_array_expr.size, Expression::Integer(10));
+        let array_type = expr.unwrap();
+        assert_eq!(array_type, Type::Array {
+            element_type: Box::new(Type::F32),
+            size: 10,
+        });
         // test a matrix type expression
         let scanner = Scanner::new("[[f32; 2]; 2]");
         let mut parser = Parser::new(scanner);
         let expr = type_expr(&mut parser);
         assert!(expr.is_some());
-        let top_array_expr = match expr.unwrap().node {
-            TypeExpr::Array(array_expr) => array_expr,
-            _ => panic!("Expected an array type expression."),
-        };
-        assert_eq!(*top_array_expr.element_type, TypeExpr::Array(ArrayType {
-            element_type: Box::new(TypeExpr::Float(FloatType::F32)),
-            size: Box::new(Expression::Integer(2)),
-        }));
-        assert_eq!(*top_array_expr.size, Expression::Integer(2));
+        let array_type = expr.unwrap();
+        assert_eq!(array_type, Type::Array {
+            element_type: Box::new(Type::Array {
+                element_type: Box::new(Type::F32),
+                size: 2,
+            }),
+            size: 2,
+        });
     }
 
     #[test]
@@ -741,14 +799,8 @@ mod tests {
         let mut parser = Parser::new(scanner);
         let expr = type_expr(&mut parser);
         assert!(expr.is_some());
-        let top_tuple_expr = match expr.unwrap().node {
-            TypeExpr::Tuple(tuple_expr) => tuple_expr,
-            _ => panic!("Expected a tuple type expression."),
-        };
-        assert_eq!(top_tuple_expr.elements.len(), 3);
-        assert_eq!(top_tuple_expr.elements[0], TypeExpr::Int(IntType::I8));
-        assert_eq!(top_tuple_expr.elements[1], TypeExpr::Float(FloatType::F32));
-        assert_eq!(top_tuple_expr.elements[2], TypeExpr::Bool);
+        let tuple_type = expr.unwrap();
+        assert_eq!(tuple_type, Type::Tuple(vec![Type::I8, Type::F32, Type::Bool]));
     }
 
     #[test]
@@ -757,14 +809,11 @@ mod tests {
         let mut parser = Parser::new(scanner);
         let expr = type_expr(&mut parser);
         assert!(expr.is_some());
-        let top_function_expr = match expr.unwrap().node {
-            TypeExpr::Function(function_expr) => function_expr,
-            _ => panic!("Expected a function type expression."),
-        };
-        assert_eq!(top_function_expr.params.len(), 2);
-        assert_eq!(top_function_expr.params[0], TypeExpr::Int(IntType::I8));
-        assert_eq!(top_function_expr.params[1], TypeExpr::Float(FloatType::F32));
-        assert_eq!(*top_function_expr.return_type, TypeExpr::Bool);
+        let function_type = expr.unwrap();
+        assert_eq!(function_type, Type::Function {
+            params: vec![Type::I8, Type::F32],
+            return_type: Box::new(Type::Bool),
+        });
     }
 
     #[test]
@@ -780,7 +829,7 @@ mod tests {
         assert_eq!(block_stmt.statements.len(), 2);
         assert_eq!(block_stmt.statements[0].node, Statement::LetDecl(LetDecl {
             name: "x".to_string(),
-            ty: None,
+            ty: Type::TypeVar("a0".to_string()),// we can infer this because it is the first type variable from type generation
             value: Expression::Integer(1),
         }));
         assert_eq!(block_stmt.statements[1].node, Statement::ExpressionStmt(Expression::Binary(BinaryExpr {
@@ -801,7 +850,7 @@ mod tests {
             _ => panic!("Expected a variable declaration."),
         };
         assert_eq!(var_decl.name, "y".to_string());
-        assert_eq!(var_decl.ty, Some(TypeExpr::Float(FloatType::F32)));
+        assert_eq!(var_decl.ty, Type::F32);
         assert_eq!(var_decl.value, Expression::Float(3.14));
         let scanner = Scanner::new("const t: bool = true;");
         let mut parser = Parser::new(scanner);
@@ -812,8 +861,23 @@ mod tests {
             _ => panic!("Expected a variable declaration."),
         };
         assert_eq!(var_decl.name, "t".to_string());
-        assert_eq!(var_decl.ty, Some(TypeExpr::Bool));
+        assert_eq!(var_decl.ty, Type::Bool);
         assert_eq!(var_decl.value, Expression::Bool(true));
+        let scanner = Scanner::new("let x = 1 + 1;");
+        let mut parser = Parser::new(scanner);
+        let stmt = statement(&mut parser);
+        assert!(stmt.is_some());
+        let var_decl = match stmt.unwrap().node {
+            Statement::LetDecl(var_decl) => var_decl,
+            _ => panic!("Expected a variable declaration."),
+        };
+        assert_eq!(var_decl.name, "x".to_string());
+        assert_eq!(var_decl.ty, Type::TypeVar("a0".to_string()));
+        assert_eq!(var_decl.value, Expression::Binary(BinaryExpr {
+            op: TokenKind::Plus,
+            lhs: Box::new(Expression::Integer(1)),
+            rhs: Box::new(Expression::Integer(1)),
+        }));
     }
 
     #[test]
@@ -828,7 +892,7 @@ mod tests {
         };
         assert_eq!(function_decl.name, "main".to_string());
         assert_eq!(function_decl.params.len(), 0);
-        assert_eq!(function_decl.return_ty, None);
+        assert_eq!(function_decl.return_ty, Type::Void);
         assert_eq!(function_decl.body.statements.len(), 1);
         let scanner = Scanner::new("fn add(x: f32, y: f32) -> f32 { return x + y; }");
         let mut parser = Parser::new(scanner);
@@ -840,9 +904,9 @@ mod tests {
         };
         assert_eq!(function_decl.name, "add".to_string());
         assert_eq!(function_decl.params.len(), 2);
-        assert_eq!(function_decl.params[0], ("x".to_string(), TypeExpr::Float(FloatType::F32)));
-        assert_eq!(function_decl.params[1], ("y".to_string(), TypeExpr::Float(FloatType::F32)));
-        assert_eq!(function_decl.return_ty, Some(TypeExpr::Float(FloatType::F32)));
+        assert_eq!(function_decl.params[0], ("x".to_string(), Type::F32));
+        assert_eq!(function_decl.params[1], ("y".to_string(), Type::F32));
+        assert_eq!(function_decl.return_ty, Type::F32);
         assert_eq!(function_decl.body.statements.len(), 1);
     }
 
