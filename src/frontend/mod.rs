@@ -1,5 +1,6 @@
 mod scanner;
 mod ast;
+mod types;
 mod parser;
 
 pub use scanner::TokenKind;

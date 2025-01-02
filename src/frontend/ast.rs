@@ -1,6 +1,6 @@
-use std::str::FromStr;
-
 use crate::frontend::scanner::TokenKind;
+
+use super::types::Type;
 
 #[derive(Debug, PartialEq)]
 pub struct Located<T> {
@@ -27,141 +27,6 @@ impl Program {
     pub fn add_statement(&mut self, statement: Located<Statement>) {
         self.statements.push(statement);
     }
-}
-
-#[derive(Debug, PartialEq)]
-pub enum TypeExpr {
-    Int(IntType),
-    Float(FloatType),
-    Bool,
-    Char,
-    String,
-    Void,
-    Array(ArrayType),
-    Tuple(TupleType),
-    Function(FunctionType),
-    Udt(UdtType),
-}
-
-impl TypeExpr {
-    pub fn new_i8(line: usize) -> Located<Self> {
-        Located::new(Self::Int(IntType::I8), line)
-    }
-
-    pub fn new_i16(line: usize) -> Located<Self> {
-        Located::new(Self::Int(IntType::I16), line)
-    }
-
-    pub fn new_i32(line: usize) -> Located<Self> {
-        Located::new(Self::Int(IntType::I32), line)
-    }
-
-    pub fn new_i64(line: usize) -> Located<Self> {
-        Located::new(Self::Int(IntType::I64), line)
-    }
-
-    pub fn new_u8(line: usize) -> Located<Self> {
-        Located::new(Self::Int(IntType::U8), line)
-    }
-
-    pub fn new_u16(line: usize) -> Located<Self> {
-        Located::new(Self::Int(IntType::U16), line)
-    }
-
-    pub fn new_u32(line: usize) -> Located<Self> {
-        Located::new(Self::Int(IntType::U32), line)
-    }
-
-    pub fn new_u64(line: usize) -> Located<Self> {
-        Located::new(Self::Int(IntType::U64), line)
-    }
-
-    pub fn new_f32(line: usize) -> Located<Self> {
-        Located::new(Self::Float(FloatType::F32), line)
-    }
-
-    pub fn new_f64(line: usize) -> Located<Self> {
-        Located::new(Self::Float(FloatType::F64), line)
-    }
-
-    pub fn new_bool(line: usize) -> Located<Self> {
-        Located::new(Self::Bool, line)
-    }
-
-    pub fn new_char(line: usize) -> Located<Self> {
-        Located::new(Self::Char, line)
-    }
-
-    pub fn new_string(line: usize) -> Located<Self> {
-        Located::new(Self::String, line)
-    }
-
-    pub fn new_void(line: usize) -> Located<Self> {
-        Located::new(Self::Void, line)
-    }
-
-    pub fn new_function(params: Vec<TypeExpr>, return_type: TypeExpr, line: usize) -> Located<Self> {
-        Located::new(Self::Function(FunctionType { 
-            params, 
-            return_type: Box::new(return_type) 
-        }), line)
-    }
-
-    pub fn new_tuple(elements: Vec<TypeExpr>, line: usize) -> Located<Self> {
-        Located::new(Self::Tuple(TupleType { elements }), line)
-    }
-
-    pub fn new_array(element_type: TypeExpr, size: Expression, line: usize) -> Located<Self> {
-        Located::new(Self::Array(ArrayType { 
-            element_type: Box::new(element_type), 
-            size: Box::new(size) 
-        }), line)
-    }
-
-    pub fn new_udt(name: String, type_vars: Vec<TypeExpr>, line: usize) -> Located<Self> {
-        Located::new(Self::Udt(UdtType { name, type_vars }), line)
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub enum IntType {
-    I8,
-    I16,
-    I32,
-    I64,
-    U8,
-    U16,
-    U32,
-    U64,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum FloatType {
-    F32,
-    F64,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct ArrayType {
-    pub element_type: Box<TypeExpr>,
-    pub size: Box<Expression>,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct TupleType {
-    pub elements: Vec<TypeExpr>,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct FunctionType {
-    pub params: Vec<TypeExpr>,
-    pub return_type: Box<TypeExpr>,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct UdtType {
-    pub name: String,
-    pub type_vars: Vec<TypeExpr>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -245,11 +110,11 @@ impl Statement {
         Located::new(Self::ExpressionStmt(expr), line)
     }
 
-    pub fn new_const_decl(name: String, ty: Option<TypeExpr>, value: Expression, line: usize) -> Located<Self> {
+    pub fn new_const_decl(name: String, ty: Type, value: Expression, line: usize) -> Located<Self> {
         Located::new(Self::ConstDecl(ConstDecl { name, ty, value }), line)
     }
 
-    pub fn new_let_decl(name: String, ty: Option<TypeExpr>, value: Expression, line: usize) -> Located<Self> {
+    pub fn new_let_decl(name: String, ty: Type, value: Expression, line: usize) -> Located<Self> {
         Located::new(Self::LetDecl(LetDecl { name, ty, value }), line)
     }
 
@@ -257,7 +122,7 @@ impl Statement {
         Located::new(Self::Block(block), line)
     }
 
-    pub fn new_function_decl(name: String, params: Vec<(String, TypeExpr)>, return_ty: Option<TypeExpr>, body: Block, line: usize) -> Located<Self> {
+    pub fn new_function_decl(name: String, params: Vec<(String, Type)>, return_ty: Type, body: Block, line: usize) -> Located<Self> {
         Located::new(Self::FunctionDecl(FunctionDecl { name, params, return_ty, body }), line)
     }
 
@@ -274,22 +139,22 @@ pub struct Block {
 #[derive(Debug, PartialEq)]
 pub struct ConstDecl {
     pub name: String,
-    pub ty: Option<TypeExpr>,
+    pub ty: Type,
     pub value: Expression,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct LetDecl {
     pub name: String,
-    pub ty: Option<TypeExpr>,
+    pub ty: Type,
     pub value: Expression,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct FunctionDecl {
     pub name: String,
-    pub params: Vec<(String, TypeExpr)>,
-    pub return_ty: Option<TypeExpr>,
+    pub params: Vec<(String, Type)>,
+    pub return_ty: Type,
     pub body: Block,
 }
 
