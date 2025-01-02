@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Type {
     I8,
     I16,
@@ -26,18 +26,6 @@ pub enum Type {
         size: usize,
     },
     TypeVar(String),
-}
-
-pub struct TypeEnv {
-    pub map: HashMap<String, Type>,
-}
-
-impl TypeEnv {
-    pub fn new() -> Self {
-        Self {
-            map: HashMap::new(),
-        }
-    }
 }
 
 const ALPHA: [char; 26] = [
