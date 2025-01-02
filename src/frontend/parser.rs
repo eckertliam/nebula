@@ -437,7 +437,7 @@ fn type_expr<'a>(parser: &mut Parser<'a>) -> Option<Type> {
                 consume(parser, TokenKind::Semicolon, "Expected a semicolon after array type.")?;
                 // parse the size
                 let size = match expression(parser) {
-                    Some(size) => 0,// TODO: eval size
+                    Some(size) => 0,// TODO: eval size at compile time
                     None => return error_at_previous(parser, "Expected a size after array type.")
                 };
                 // consume the closing bracket
