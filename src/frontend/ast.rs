@@ -158,6 +158,10 @@ pub struct FunctionDecl {
     pub body: Block,
 }
 
+// TODO: add record definitions
+// TODO: add generic type definitions
+// TODO: add type aliases
+
 #[derive(Debug, PartialEq)]
 pub struct BinaryExpr {
     pub lhs: Box<Expression>,

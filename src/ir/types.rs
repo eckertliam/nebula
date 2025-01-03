@@ -21,10 +21,19 @@ pub enum Type {
         return_type: Box<Type>,
     },
     Tuple(Vec<Type>),
-    Array {
-        element_type: Box<Type>,
-        size: usize,
+    // A record is a map of field names to types
+    Record(HashMap<String, Type>),
+    // Type constructor application
+    AppliedConstructor {
+        constructor: Box<Type>,
+        args: Vec<Type>,
     },
+    // a type alias
+    TypeAlias {
+        name: String,
+        ty: Box<Type>,
+    },
+    // a type variable
     TypeVar(String),
 }
 

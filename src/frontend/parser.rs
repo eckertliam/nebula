@@ -426,27 +426,6 @@ fn type_expr<'a>(parser: &mut Parser<'a>) -> Option<Type> {
                     return_type: Box::new(return_type),
                 })
             }
-            TokenKind::LeftBracket => {
-                // an array type is of the form [type; size]
-                // parse the element type
-                let element_type = match type_expr(parser) {
-                    Some(element_type) => element_type,
-                    None => return error_at_previous(parser, "Expected an element type after array type.")
-                };
-                // expect a semicolon
-                consume(parser, TokenKind::Semicolon, "Expected a semicolon after array type.")?;
-                // parse the size
-                let size = match expression(parser) {
-                    Some(size) => 0,// TODO: eval size at compile time
-                    None => return error_at_previous(parser, "Expected a size after array type.")
-                };
-                // consume the closing bracket
-                consume(parser, TokenKind::RightBracket, "Expected a right bracket after array type.")?;
-                Some(Type::Array {
-                    element_type: Box::new(element_type),
-                    size,
-                })
-            }
             TokenKind::LeftParen => {
                 let mut tuple_type = Vec::new();
                 if !check_token(parser, TokenKind::RightParen) {
@@ -463,6 +442,7 @@ fn type_expr<'a>(parser: &mut Parser<'a>) -> Option<Type> {
                 consume(parser, TokenKind::RightParen, "Expected a right parenthesis after tuple type.")?;
                 Some(Type::Tuple(tuple_type))
             }
+            // TODO: handle type fn application
             _ => error_at_previous(parser, "Expected a valid type."),
         },
     }
@@ -767,31 +747,7 @@ mod tests {
         assert!(expr.is_some());
     }
     
-    #[test]
-    fn test_array_type_expr() {
-        let scanner = Scanner::new("[f32; 10]");
-        let mut parser = Parser::new(scanner);
-        let expr = type_expr(&mut parser);
-        assert!(expr.is_some());
-        let array_type = expr.unwrap();
-        assert_eq!(array_type, Type::Array {
-            element_type: Box::new(Type::F32),
-            size: 10,
-        });
-        // test a matrix type expression
-        let scanner = Scanner::new("[[f32; 2]; 2]");
-        let mut parser = Parser::new(scanner);
-        let expr = type_expr(&mut parser);
-        assert!(expr.is_some());
-        let array_type = expr.unwrap();
-        assert_eq!(array_type, Type::Array {
-            element_type: Box::new(Type::Array {
-                element_type: Box::new(Type::F32),
-                size: 2,
-            }),
-            size: 2,
-        });
-    }
+    // TODO: test type fn application
 
     #[test]
     fn test_tuple_type_expr() {
