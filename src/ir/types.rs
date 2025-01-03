@@ -21,20 +21,20 @@ pub enum Type {
         return_type: Box<Type>,
     },
     Tuple(Vec<Type>),
-    // A record is a map of field names to types
-    Record(HashMap<String, Type>),
-    // Type constructor application
-    AppliedConstructor {
-        constructor: Box<Type>,
-        args: Vec<Type>,
-    },
-    // a type alias
-    TypeAlias {
+    // user defined type ie., record, alias, enum, etc.
+    Udt {
         name: String,
-        ty: Box<Type>,
+        type_args: Vec<Type>,
     },
     // a type variable
     TypeVar(String),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Udt {
+    Record(HashMap<String, Type>),
+    Enum(Vec<String>),
+    Alias(Box<Type>),
 }
 
 const ALPHA: [char; 26] = [

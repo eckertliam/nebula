@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::{Function, Type};
+use super::{Function, Type, Udt};
 
 /// Map of types and functions
 /// Created for top-level
@@ -9,6 +9,8 @@ pub struct Context<'a> {
     pub parent: Option<Box<&'a mut Context<'a>>>,
     pub types: HashMap<String, Type>,
     pub functions: HashMap<String, Function>,
+    // user defined types
+    pub udts: HashMap<String, Udt>,
 }
 
 impl<'a> Context<'a> {
@@ -17,6 +19,7 @@ impl<'a> Context<'a> {
             parent: None,
             types: HashMap::new(),
             functions: HashMap::new(),
+            udts: HashMap::new(),
         }
     }
 
@@ -50,6 +53,19 @@ impl<'a> Context<'a> {
             parent: Some(Box::new(self)),
             functions: HashMap::new(),
             types: HashMap::new(),
+            udts: HashMap::new(),
         }
+    }
+
+    pub fn add_udt(&mut self, name: String, udt: Udt) {
+        self.udts.insert(name, udt);
+    }
+
+    pub fn get_udt(&self, name: &str) -> Option<&Udt> {
+        self.udts.get(name)
+    }
+
+    pub fn get_udt_mut(&mut self, name: &str) -> Option<&mut Udt> {
+        self.udts.get_mut(name)
     }
 }
