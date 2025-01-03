@@ -97,7 +97,7 @@ impl Expression {
 
 #[derive(Debug, PartialEq)]
 pub enum Statement {
-    ExpressionStmt(Expression),
+    CallStmt(CallExpr),
     ConstDecl(ConstDecl),
     LetDecl(LetDecl),
     Block(Block),
@@ -106,8 +106,8 @@ pub enum Statement {
 }
 
 impl Statement {
-    pub fn new_expression_stmt(expr: Expression, line: usize) -> Located<Self> {
-        Located::new(Self::ExpressionStmt(expr), line)
+    pub fn new_call_stmt(call: CallExpr, line: usize) -> Located<Self> {
+        Located::new(Self::CallStmt(call), line)
     }
 
     pub fn new_const_decl(name: String, ty: Type, value: Expression, line: usize) -> Located<Self> {

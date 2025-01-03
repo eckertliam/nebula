@@ -1,6 +1,6 @@
 // Converts an AST to an IR
 
-use crate::ir;
+use crate::ir::{self, Context, Type};
 use crate::frontend::{ast, TokenKind};
 
 /// Converts an AST expression to an IR expression
@@ -73,6 +73,48 @@ fn expr_to_ir(expr: &ast::Expression) -> ir::Expression {
     }
 }
 
+/// Converts AST statement to IR instruction
+fn stmt_to_ir(stmt: &ast::Statement) -> ir::Instruction {
+    match stmt {
+        ast::Statement::CallStmt(call) => ir::Instruction::Call {
+            callee: Box::new(expr_to_ir(&call.callee)),
+            args: call.args.iter().map(|e| expr_to_ir(e)).collect(),
+        },
+        ast::Statement::ConstDecl(decl) => ir::Instruction::VarDecl {
+            mutable: false,
+            name: decl.name.clone(),
+            ty: decl.ty.clone(),
+            value: expr_to_ir(&decl.value),
+        },
+        ast::Statement::LetDecl(decl) => ir::Instruction::VarDecl {
+            mutable: true,
+            name: decl.name.clone(),
+            ty: decl.ty.clone(),
+            value: expr_to_ir(&decl.value),
+        },
+        // TODO: handle mutate statements
+        // TODO: handle block statements as a function call to an anonymous function
+        ast::Statement::Block(block) => todo!(),
+        ast::Statement::FunctionDecl(decl) => {
+            let name = decl.name.clone();
+            let params = decl.params.clone();
+            let return_type = decl.return_ty.clone();
+            let func = ir::Function {
+                name,
+                params,
+                return_type,
+                body: decl.body.statements.iter().map(|s| stmt_to_ir(&s.node)).collect(),
+            };
+            ir::Instruction::FuncDecl(func)
+        }
+        ast::Statement::ReturnStmt(expr) => match expr {
+            Some(e) => ir::Instruction::Return(Some(expr_to_ir(e))),
+            None => ir::Instruction::Return(None),
+        }
+        _ => unreachable!(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use ast::CallExpr;
@@ -102,6 +144,80 @@ mod tests {
         assert_eq!(ir_expr, ir::Expression::Call {
             callee: Box::new(ir::Expression::Identifier("add".to_string())),
             args: vec![ir::Expression::I8(1), ir::Expression::I8(2)],
+        });
+    }
+
+    #[test]
+    fn test_stmt_to_ir() {
+        // Test const declaration
+        let const_decl = ast::Statement::ConstDecl(ast::ConstDecl {
+            name: "x".to_string(),
+            ty: Type::I32,
+            value: ast::Expression::Integer(42),
+        });
+        let ir_inst = stmt_to_ir(&const_decl);
+        assert_eq!(ir_inst, ir::Instruction::VarDecl {
+            mutable: false,
+            name: "x".to_string(),
+            ty: Type::I32,
+            value: ir::Expression::I8(42),
+        });
+
+        // Test let declaration
+        let let_decl = ast::Statement::LetDecl(ast::LetDecl {
+            name: "y".to_string(),
+            ty: Type::F32,
+            value: ast::Expression::Float(3.14),
+        });
+        let ir_inst = stmt_to_ir(&let_decl);
+        assert_eq!(ir_inst, ir::Instruction::VarDecl {
+            mutable: true,
+            name: "y".to_string(),
+            ty: Type::F32,
+            value: ir::Expression::F32(3.14),
+        });
+
+        // Test function declaration
+        let func_decl = ast::Statement::FunctionDecl(ast::FunctionDecl {
+            name: "test_func".to_string(),
+            params: vec![(String::from("x"), Type::I32)],
+            return_ty: Type::I32,
+            body: ast::Block {
+                statements: vec![
+                    ast::Located {
+                        node: ast::Statement::ReturnStmt(Some(ast::Expression::Identifier("x".to_string()))),
+                        line: 1,
+                    }
+                ],
+            },
+        });
+        let ir_inst = stmt_to_ir(&func_decl);
+        assert_eq!(ir_inst, ir::Instruction::FuncDecl(ir::Function {
+            name: "test_func".to_string(),
+            params: vec![(String::from("x"), Type::I32)],
+            return_type: Type::I32,
+            body: vec![ir::Instruction::Return(Some(ir::Expression::Identifier("x".to_string())))],
+        }));
+
+        // Test return statement
+        let return_stmt = ast::Statement::ReturnStmt(Some(ast::Expression::Integer(123)));
+        let ir_inst = stmt_to_ir(&return_stmt);
+        assert_eq!(ir_inst, ir::Instruction::Return(Some(ir::Expression::I8(123))));
+
+        // Test void return statement
+        let void_return = ast::Statement::ReturnStmt(None);
+        let ir_inst = stmt_to_ir(&void_return);
+        assert_eq!(ir_inst, ir::Instruction::Return(None));
+
+        // Test call statement
+        let call_stmt = ast::Statement::CallStmt(ast::CallExpr {
+            callee: Box::new(ast::Expression::Identifier("print".to_string())),
+            args: vec![ast::Expression::String("hello".to_string())],
+        });
+        let ir_inst = stmt_to_ir(&call_stmt);
+        assert_eq!(ir_inst, ir::Instruction::Call {
+            callee: Box::new(ir::Expression::Identifier("print".to_string())),
+            args: vec![ir::Expression::Str("hello".to_string())],
         });
     }
 }

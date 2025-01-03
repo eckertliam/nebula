@@ -458,7 +458,7 @@ fn statement<'a>(parser: &mut Parser<'a>) -> Option<Located<Statement>> {
         TokenKind::Fn => function_declaration(parser),
         TokenKind::LeftBrace => block_statement(parser),
         TokenKind::Return => return_statement(parser),
-        _ => expression_statement(parser),
+        _ => unreachable!(),
     }
 }
 
@@ -558,12 +558,7 @@ fn parse_function_params<'a>(parser: &mut Parser<'a>) -> Option<Vec<(String, Typ
     Some(params)
 }
 
-fn expression_statement<'a>(parser: &mut Parser<'a>) -> Option<Located<Statement>> {
-    let line = parser.previous.line;
-    let expr = expression(parser)?.node;
-    consume(parser, TokenKind::Semicolon, "Expected a semicolon after expression statement.")?;
-    Some(Statement::new_expression_stmt(expr, line))
-}
+// TODO: add call statement parsing
 
 fn return_statement<'a>(parser: &mut Parser<'a>) -> Option<Located<Statement>> {
     // advance over the return keyword
@@ -593,7 +588,7 @@ pub fn parse<'a>(src: &str) -> Option<Program> {
 
 #[cfg(test)]
 mod tests {
-    use crate::frontend::ast::{BinaryExpr, LetDecl};
+    use crate::{frontend::ast::{BinaryExpr, LetDecl}, ConstDecl};
 
     use super::*;
 
@@ -774,7 +769,7 @@ mod tests {
 
     #[test]
     fn test_block_statement() {
-        let scanner = Scanner::new("{ let x = 1; x + 2; }");
+        let scanner = Scanner::new("{ let x = 1; const y = x + 2; }");
         let mut parser = Parser::new(scanner);
         let stmt = statement(&mut parser);
         assert!(stmt.is_some());
@@ -788,11 +783,15 @@ mod tests {
             ty: Type::TypeVar("a0".to_string()),// we can infer this because it is the first type variable from type generation
             value: Expression::Integer(1),
         }));
-        assert_eq!(block_stmt.statements[1].node, Statement::ExpressionStmt(Expression::Binary(BinaryExpr {
-            op: TokenKind::Plus,
-            lhs: Box::new(Expression::Identifier("x".to_string())),
-            rhs: Box::new(Expression::Integer(2)),
-        })));
+        assert_eq!(block_stmt.statements[1].node, Statement::ConstDecl(ConstDecl {
+            name: "y".to_string(),
+            ty: Type::TypeVar("a1".to_string()),// we can infer this because it is the second type variable from type generation
+            value: Expression::Binary(BinaryExpr {
+                op: TokenKind::Plus,
+                lhs: Box::new(Expression::Identifier("x".to_string())),
+                rhs: Box::new(Expression::Integer(2)),
+            }),
+        }));
     }
     
     #[test]
@@ -866,22 +865,7 @@ mod tests {
         assert_eq!(function_decl.body.statements.len(), 1);
     }
 
-    #[test]
-    fn test_expression_statement() {
-        let scanner = Scanner::new("x + 1;");
-        let mut parser = Parser::new(scanner);
-        let stmt = statement(&mut parser);
-        assert!(stmt.is_some());
-        let expr_stmt = match stmt.unwrap().node {
-            Statement::ExpressionStmt(expr_stmt) => expr_stmt,
-            _ => panic!("Expected an expression statement."),
-        };
-        assert_eq!(expr_stmt, Expression::Binary(BinaryExpr {
-            op: TokenKind::Plus,
-            lhs: Box::new(Expression::Identifier("x".to_string())),
-            rhs: Box::new(Expression::Integer(1)),
-        }));
-    }
+    // TODO: add call statement tests
 
     #[test]
     fn test_return_statement() {

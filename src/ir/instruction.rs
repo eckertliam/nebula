@@ -1,3 +1,4 @@
+use super::Function;
 use super::Type;
 use super::Expression;
 
@@ -16,10 +17,12 @@ pub enum Instruction {
         value: Expression,
     },
     // Return
-    Return(Expression),
+    Return(Option<Expression>),
     // Call function
     Call {
         callee: Box<Expression>,
         args: Vec<Expression>,
-    }
+    },
+    // Function declaration never used converting ir to llvm only used to be added to context
+    FuncDecl(Function),
 }
