@@ -1,4 +1,5 @@
 use crate::frontend::scanner::TokenKind;
+use crate::passes::const_fold;
 
 use super::scanner::{Scanner, Token};
 use super::ast::{Block, Expression, Located, Program, Statement};
@@ -437,7 +438,15 @@ fn type_expr<'a>(parser: &mut Parser<'a>) -> Option<Type> {
                 consume(parser, TokenKind::Semicolon, "Expected a semicolon after array type.")?;
                 // parse the size
                 let size = match expression(parser) {
-                    Some(size) => 0,// TODO: eval size at compile time
+                    Some(size) => match const_fold(size.node) {
+                        Some(Expression::Integer(v)) => if v < 0 {
+                            return error_at_previous(parser, "Expected a positive size after array type.");
+                        } else {
+                            v as usize
+                        },
+                        Some(Expression::UnsignedInteger(v)) => v as usize,
+                        _ => return error_at_previous(parser, "Expected a valid size after array type.")
+                    },
                     None => return error_at_previous(parser, "Expected a size after array type.")
                 };
                 // consume the closing bracket
@@ -894,11 +903,11 @@ mod tests {
             name: "add".to_string(), 
             params: vec![("x".to_string(), Type::F32), ("y".to_string(), Type::F32)], 
             return_ty: Type::F32, 
-            body: vec![Located::new(Statement::ExpressionStmt(Expression::Binary {
+            body: vec![Located::new(Statement::ReturnStmt(Some(Expression::Binary {
                 lhs: Box::new(Expression::Identifier("x".to_string())),
                 op: TokenKind::Plus,
                 rhs: Box::new(Expression::Identifier("y".to_string())),
-            }), 1)] 
+            })), 1)] 
         });
     }
 
