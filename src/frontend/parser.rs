@@ -165,6 +165,8 @@ fn char_expression<'a>(parser: &mut Parser<'a>) -> Option<Located<Expression>> {
     Some(Expression::new_char(value, line))
 }
 
+// TODO: handle array expressions
+
 fn bool_expression<'a>(parser: &mut Parser<'a>) -> Option<Located<Expression>> {
     let line = parser.previous.line;
     let value = match parser.previous.kind {

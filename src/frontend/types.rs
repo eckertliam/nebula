@@ -1,6 +1,8 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
-#[derive(Debug, PartialEq)]
+use super::Expression;
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum Type {
     I8,
     I16,
@@ -28,15 +30,66 @@ pub enum Type {
     TypeVar(String),
 }
 
-pub struct TypeEnv {
+impl Display for Type {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Type::I8 => write!(f, "i8"),
+            Type::I16 => write!(f, "i16"),
+            Type::I32 => write!(f, "i32"),
+            Type::I64 => write!(f, "i64"),
+            Type::U8 => write!(f, "u8"),
+            Type::U16 => write!(f, "u16"),
+            Type::U32 => write!(f, "u32"),
+            Type::U64 => write!(f, "u64"),
+            Type::F32 => write!(f, "f32"),
+            Type::F64 => write!(f, "f64"),
+            Type::Bool => write!(f, "bool"),
+            Type::Char => write!(f, "char"),
+            Type::String => write!(f, "string"),
+            Type::Void => write!(f, "void"),
+            Type::Function { params, return_type } => {
+                let params_str = params.iter().map(|p| p.to_string()).collect::<Vec<String>>().join(", ");
+                write!(f, "fn({}) -> {}", params_str, return_type)
+            }
+            Type::Tuple(types) => {
+                let types_str = types.iter().map(|t| t.to_string()).collect::<Vec<String>>().join(", ");
+                write!(f, "({})", types_str)
+            }
+            Type::Array { element_type, size } => write!(f, "[{}; {}]", element_type, size),
+            Type::TypeVar(name) => write!(f, "{}", name),
+        }
+    }
+}
+
+// TODO: check if two types are compatible
+// TODO: check if a type is a subtype of another type
+
+pub struct TypeEnv<'t> {
+    pub parent: Option<Box<&'t TypeEnv<'t>>>,
     pub map: HashMap<String, Type>,
 }
 
-impl TypeEnv {
+impl<'t> TypeEnv<'t> {
     pub fn new() -> Self {
         Self {
+            parent: None,
             map: HashMap::new(),
         }
+    }
+
+    pub fn child(&'t self) -> Self {
+        Self {
+            parent: Some(Box::new(self)),
+            map: HashMap::new(),
+        }
+    }
+
+    pub fn get(&self, ident: &str) -> Option<&Type> {
+        self.map.get(ident).or_else(|| self.parent.as_ref().and_then(|p| p.get(ident)))
+    }
+
+    pub fn insert(&mut self, ident: &str, ty: Type) {
+        self.map.insert(ident.to_string(), ty);
     }
 }
 
