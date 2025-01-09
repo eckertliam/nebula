@@ -1,7 +1,5 @@
 use std::{collections::HashMap, fmt::Display};
 
-use super::Expression;
-
 #[derive(Debug, PartialEq, Clone)]
 pub enum Type {
     I8,
@@ -60,9 +58,6 @@ impl Display for Type {
         }
     }
 }
-
-// TODO: check if two types are compatible
-// TODO: check if a type is a subtype of another type
 
 pub struct TypeEnv<'t> {
     pub parent: Option<Box<&'t TypeEnv<'t>>>,

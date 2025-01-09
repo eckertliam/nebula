@@ -51,9 +51,7 @@ pub enum Expression {
         callee: Box<Expression>,
         args: Vec<Expression>,
     },
-    Array {
-        elements: Vec<Expression>,
-    },
+    Array(Vec<Expression>),
 }
 
 impl Expression {
@@ -108,7 +106,7 @@ impl Expression {
     }
 
     pub fn new_array(elements: Vec<Expression>, line: usize) -> Located<Self> {
-        Located::new(Self::Array { elements }, line)
+        Located::new(Self::Array(elements), line)
     }
 }
 
