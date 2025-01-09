@@ -59,21 +59,38 @@ impl Display for Type {
     }
 }
 
+type FnSig<'t> = (Vec<&'t Type>, &'t Type);
+
 pub struct TypeEnv<'t> {
-    pub parent: Option<Box<&'t TypeEnv<'t>>>,
-    pub map: HashMap<String, Type>,
+    pub fn_sig: Option<FnSig<'t>>,
+    parent: Option<Box<&'t TypeEnv<'t>>>,
+    map: HashMap<String, Type>,
 }
 
 impl<'t> TypeEnv<'t> {
+    /// creates a new type environment
     pub fn new() -> Self {
         Self {
+            fn_sig: None,
             parent: None,
             map: HashMap::new(),
         }
     }
 
+    /// creates a child environment
     pub fn child(&'t self) -> Self {
         Self {
+            fn_sig: None,
+            parent: Some(Box::new(self)),
+            map: HashMap::new(),
+        }
+    }
+
+    /// creates a child environment with a function signature
+    /// this is the type environment for a function
+    pub fn child_fn(&'t self, params: Vec<&'t Type>, return_type: &'t Type) -> Self {
+        Self {
+            fn_sig: Some((params, return_type)),
             parent: Some(Box::new(self)),
             map: HashMap::new(),
         }
