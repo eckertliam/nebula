@@ -1,7 +1,7 @@
-use crate::{Expression, TokenKind, Type, TypeEnv};
+use crate::{Block, Expression, Statement, TokenKind, Type, TypeEnv};
 
 /// Returns the type that the expression qualifies for
-fn infer_expr_type(expr: &Expression, type_env: &TypeEnv) -> Result<Type, String> {
+fn infer_expr_type(expr: &Expression, type_env: &mut TypeEnv) -> Result<Type, String> {
     match expr {
         Expression::Binary { lhs, op, rhs } => infer_binary_expr_type(lhs, op, rhs, type_env),
         Expression::Unary { op, expr } => infer_unary_expr_type(op, expr, type_env),
@@ -56,7 +56,7 @@ fn infer_binary_expr_type(
     lhs: &Expression,
     op: &TokenKind,
     rhs: &Expression,
-    type_env: &TypeEnv,
+    type_env: &mut TypeEnv,
 ) -> Result<Type, String> {
     let lhs_type = infer_expr_type(lhs, type_env)?;
     let rhs_type = infer_expr_type(rhs, type_env)?;
@@ -103,16 +103,22 @@ fn infer_binary_expr_type(
                 ));
             }
             (Type::Void, Type::Void) => {
-                return Err(format!(
-                    "Cannot perform operation {} on void types",
-                    op
-                ));
+                return Err(format!("Cannot perform operation {} on void types", op));
             }
             // types that can be compared with only == and !=
-            (Type::Tuple(_), Type::Tuple(_)) 
-            | (Type::String, Type::String) 
-            | (Type::Char, Type::Char) 
-            | (Type::Array { element_type: _, size: _ }, Type::Array { element_type: _, size: _ }) => {
+            (Type::Tuple(_), Type::Tuple(_))
+            | (Type::String, Type::String)
+            | (Type::Char, Type::Char)
+            | (
+                Type::Array {
+                    element_type: _,
+                    size: _,
+                },
+                Type::Array {
+                    element_type: _,
+                    size: _,
+                },
+            ) => {
                 if *op != TokenKind::EqEq && *op != TokenKind::BangEq {
                     return Err(format!(
                         "Cannot perform operation {} on types {}",
@@ -141,7 +147,7 @@ fn infer_binary_expr_type(
 fn infer_unary_expr_type(
     op: &TokenKind,
     expr: &Expression,
-    type_env: &TypeEnv,
+    type_env: &mut TypeEnv,
 ) -> Result<Type, String> {
     let expr_type = infer_expr_type(expr, type_env)?;
     match op {
@@ -165,7 +171,7 @@ fn infer_unary_expr_type(
     }
 }
 
-fn infer_ident_expr_type(ident: &str, type_env: &TypeEnv) -> Result<Type, String> {
+fn infer_ident_expr_type(ident: &str, type_env: &mut TypeEnv) -> Result<Type, String> {
     match type_env.get(ident).cloned() {
         Some(Type::TypeVar(name)) => Err(format!("Type variable {} not resolved", name)),
         Some(ty) => Ok(ty),
@@ -179,7 +185,7 @@ fn infer_ident_expr_type(ident: &str, type_env: &TypeEnv) -> Result<Type, String
 fn infer_call_expr_type(
     callee: &Expression,
     args: &Vec<Expression>,
-    type_env: &TypeEnv,
+    type_env: &mut TypeEnv,
 ) -> Result<Type, String> {
     let callee_type = infer_expr_type(callee, type_env)?;
 
@@ -217,7 +223,10 @@ fn infer_call_expr_type(
     Ok(return_type)
 }
 
-fn infer_array_expr_type(elements: &Vec<Expression>, type_env: &TypeEnv) -> Result<Type, String> {
+fn infer_array_expr_type(
+    elements: &Vec<Expression>,
+    type_env: &mut TypeEnv,
+) -> Result<Type, String> {
     // ensure all elements are of the same type
     let element_type = infer_expr_type(&elements[0], type_env)?;
     for element in elements.iter().skip(1) {
@@ -226,7 +235,129 @@ fn infer_array_expr_type(elements: &Vec<Expression>, type_env: &TypeEnv) -> Resu
         }
     }
 
-    Ok(Type::Array { element_type: Box::new(element_type), size: elements.len() })
+    Ok(Type::Array {
+        element_type: Box::new(element_type),
+        size: elements.len(),
+    })
+}
+
+fn type_check_stmt(type_env: &mut TypeEnv, stmt: &Statement) -> Result<Type, String> {
+    match stmt {
+        Statement::ExpressionStmt(expr) => infer_expr_type(expr, type_env),
+        Statement::ConstDecl { name, ty, value } => type_check_var_decl(type_env, name, ty, value),
+        Statement::LetDecl { name, ty, value } => type_check_var_decl(type_env, name, ty, value),
+        Statement::Block(block) => type_check_block(type_env, &block),
+        Statement::FunctionDecl {
+            name,
+            params,
+            return_ty,
+            body,
+        } => type_check_fn(type_env, name, params, return_ty, body),
+        Statement::ReturnStmt(expr) => type_check_return_stmt(type_env, expr),
+    }
+}
+
+fn type_check_return_stmt(
+    type_env: &mut TypeEnv,
+    expr: &Option<Expression>,
+) -> Result<Type, String> {
+    if let Some(expr) = expr {
+        let expr_type = infer_expr_type(expr, type_env)?;
+        Ok(expr_type)
+    } else {
+        Ok(Type::Void)
+    }
+}
+
+fn type_check_var_decl(
+    type_env: &mut TypeEnv,
+    name: &str,
+    expected_ty: &Type,
+    value: &Expression,
+) -> Result<Type, String> {
+    // get the type of the value
+    let actual_ty = infer_expr_type(value, type_env)?;
+    // check that the types match
+    // TODO: add resolution of type vars here
+    if actual_ty != *expected_ty {
+        return Err(format!("Expected type {}, got {}", expected_ty, actual_ty));
+    }
+    // enter the type into the type env
+    type_env.insert(name, expected_ty.clone());
+    Ok(actual_ty)
+}
+
+fn type_check_block(type_env: &mut TypeEnv, block: &Block) -> Result<Type, String> {
+    // track the types of any return statements
+    let mut return_types = Vec::new();
+    for stmt in block.iter() {
+        match &stmt.node {
+            Statement::ReturnStmt(expr) => return_types.push(type_check_return_stmt(type_env, expr)?),
+            Statement::Block(block) => return_types.push(type_check_block(type_env, &block)?),
+            _ => {
+                if let Err(e) = type_check_stmt(type_env, &stmt.node) {
+                    return Err(e);
+                }
+            }
+        };
+    }
+    // check that all return types are the same type
+    if return_types.len() > 0 {
+        let first_type = &return_types[0];
+        for ty in return_types.iter().skip(1) {
+            if ty != first_type {
+                return Err(format!("All return statements must return the same type"));
+            }
+        }
+        return Ok(first_type.clone());
+    } else {
+        Ok(Type::Void)
+    }
+}
+
+/// type checks a function and its body
+/// enters a new type env for the function and returns the type of the function if body is valid
+fn type_check_fn(
+    type_env: &mut TypeEnv,
+    name: &str,
+    params: &Vec<(String, Type)>,
+    return_ty: &Type,
+    body: &Block,
+) -> Result<Type, String> {
+    // get the fn sig from the type env
+    let fn_sig = type_env
+        .fn_sig
+        .clone()
+        .ok_or(format!("Function signature not found in type environment"))?;
+    // stmt should be a function definition. check if it is then check that fn_sig param types and length match its params
+    if params.len() != fn_sig.0.len() {
+        return Err(format!(
+            "Function {} has {} params, expected {}",
+            name,
+            params.len(),
+            fn_sig.0.len()
+        ));
+    }
+    // validate each param type and enter it into the type env
+    for (param, expected_type) in params.iter().zip(fn_sig.0.iter()) {
+        if param.1 != *expected_type {
+            return Err(format!(
+                "Function {} has param type {}, expected {}",
+                name, param.1, expected_type
+            ));
+        } else {
+            type_env.insert(&param.0, expected_type.clone());
+        }
+    }
+    // type check the body of the function
+    let actual_ret_ty = type_check_block(type_env, body)?;
+    if actual_ret_ty != *return_ty {
+        return Err(format!(
+            "Function {} has return type {}, expected {}",
+            name, actual_ret_ty, return_ty
+        ));
+    }
+    Ok(actual_ret_ty)
 }
 
 #[cfg(test)]
@@ -240,37 +371,64 @@ mod tests {
         env.insert("y", Type::F64);
         env.insert("b", Type::Bool);
         env.insert("s", Type::String);
-        env.insert("func", Type::Function {
-            params: vec![Type::I64, Type::I64],
-            return_type: Box::new(Type::I64),
-        });
+        env.insert(
+            "func",
+            Type::Function {
+                params: vec![Type::I64, Type::I64],
+                return_type: Box::new(Type::I64),
+            },
+        );
         env
     }
 
     #[test]
     fn test_literal_types() {
-        let env = create_test_env();
-        
-        assert_eq!(infer_expr_type(&Expression::Integer(42), &env), Ok(Type::I64));
-        assert_eq!(infer_expr_type(&Expression::UnsignedInteger(42), &env), Ok(Type::U64));
-        assert_eq!(infer_expr_type(&Expression::Float(3.14), &env), Ok(Type::F64));
-        assert_eq!(infer_expr_type(&Expression::Char('a'), &env), Ok(Type::Char));
-        assert_eq!(infer_expr_type(&Expression::String("hello".to_string()), &env), Ok(Type::String));
-        assert_eq!(infer_expr_type(&Expression::Bool(true), &env), Ok(Type::Bool));
+        let mut env = create_test_env();
+
+        assert_eq!(
+            infer_expr_type(&Expression::Integer(42), &mut env),
+            Ok(Type::I64)
+        );
+        assert_eq!(
+            infer_expr_type(&Expression::UnsignedInteger(42), &mut env),
+            Ok(Type::U64)
+        );
+        assert_eq!(
+            infer_expr_type(&Expression::Float(3.14), &mut env),
+            Ok(Type::F64)
+        );
+        assert_eq!(
+            infer_expr_type(&Expression::Char('a'), &mut env),
+            Ok(Type::Char)
+        );
+        assert_eq!(
+            infer_expr_type(&Expression::String("hello".to_string()), &mut env),
+            Ok(Type::String)
+        );
+        assert_eq!(
+            infer_expr_type(&Expression::Bool(true), &mut env),
+            Ok(Type::Bool)
+        );
     }
 
     #[test]
     fn test_binary_arithmetic() {
-        let env = create_test_env();
-        let ops = [TokenKind::Plus, TokenKind::Minus, TokenKind::Star, TokenKind::Slash, TokenKind::Modulo];
-        
+        let mut env = create_test_env();
+        let ops = [
+            TokenKind::Plus,
+            TokenKind::Minus,
+            TokenKind::Star,
+            TokenKind::Slash,
+            TokenKind::Modulo,
+        ];
+
         for op in ops.iter() {
             let expr = Expression::Binary {
                 lhs: Box::new(Expression::Integer(1)),
                 op: op.clone(),
                 rhs: Box::new(Expression::Integer(2)),
             };
-            assert_eq!(infer_expr_type(&expr, &env), Ok(Type::I64));
+            assert_eq!(infer_expr_type(&expr, &mut env), Ok(Type::I64));
 
             // Test type mismatch
             let expr_mismatch = Expression::Binary {
@@ -278,15 +436,22 @@ mod tests {
                 op: op.clone(),
                 rhs: Box::new(Expression::Float(2.0)),
             };
-            assert!(infer_expr_type(&expr_mismatch, &env).is_err());
+            assert!(infer_expr_type(&expr_mismatch, &mut env).is_err());
         }
     }
 
     #[test]
     fn test_binary_comparison() {
-        let env = create_test_env();
-        let ops = [TokenKind::EqEq, TokenKind::BangEq, TokenKind::Lt, TokenKind::LtEq, TokenKind::Gt, TokenKind::GtEq];
-        
+        let mut env = create_test_env();
+        let ops = [
+            TokenKind::EqEq,
+            TokenKind::BangEq,
+            TokenKind::Lt,
+            TokenKind::LtEq,
+            TokenKind::Gt,
+            TokenKind::GtEq,
+        ];
+
         for op in ops.iter() {
             // Numeric comparison
             let expr = Expression::Binary {
@@ -294,7 +459,7 @@ mod tests {
                 op: op.clone(),
                 rhs: Box::new(Expression::Integer(2)),
             };
-            assert_eq!(infer_expr_type(&expr, &env), Ok(Type::Bool));
+            assert_eq!(infer_expr_type(&expr, &mut env), Ok(Type::Bool));
 
             // String comparison (only == and !=)
             let str_expr = Expression::Binary {
@@ -302,7 +467,7 @@ mod tests {
                 op: op.clone(),
                 rhs: Box::new(Expression::String("b".to_string())),
             };
-            let result = infer_expr_type(&str_expr, &env);
+            let result = infer_expr_type(&str_expr, &mut env);
             match op {
                 TokenKind::EqEq | TokenKind::BangEq => assert_eq!(result, Ok(Type::Bool)),
                 _ => assert!(result.is_err()),
@@ -312,16 +477,16 @@ mod tests {
 
     #[test]
     fn test_binary_logical() {
-        let env = create_test_env();
+        let mut env = create_test_env();
         let ops = [TokenKind::And, TokenKind::Or];
-        
+
         for op in ops.iter() {
             let expr = Expression::Binary {
                 lhs: Box::new(Expression::Bool(true)),
                 op: op.clone(),
                 rhs: Box::new(Expression::Bool(false)),
             };
-            assert_eq!(infer_expr_type(&expr, &env), Ok(Type::Bool));
+            assert_eq!(infer_expr_type(&expr, &mut env), Ok(Type::Bool));
 
             // Test type mismatch
             let expr_mismatch = Expression::Binary {
@@ -329,78 +494,89 @@ mod tests {
                 op: op.clone(),
                 rhs: Box::new(Expression::Integer(1)),
             };
-            assert!(infer_expr_type(&expr_mismatch, &env).is_err());
+            assert!(infer_expr_type(&expr_mismatch, &mut env).is_err());
         }
     }
 
     #[test]
     fn test_unary_operators() {
-        let env = create_test_env();
-        
+        let mut env = create_test_env();
+
         // Test numeric negation
         let neg_expr = Expression::Unary {
             op: TokenKind::Minus,
             expr: Box::new(Expression::Integer(42)),
         };
-        assert_eq!(infer_expr_type(&neg_expr, &env), Ok(Type::I64));
+        assert_eq!(infer_expr_type(&neg_expr, &mut env), Ok(Type::I64));
 
         // Test logical negation
         let not_expr = Expression::Unary {
             op: TokenKind::Bang,
             expr: Box::new(Expression::Bool(true)),
         };
-        assert_eq!(infer_expr_type(&not_expr, &env), Ok(Type::Bool));
+        assert_eq!(infer_expr_type(&not_expr, &mut env), Ok(Type::Bool));
 
         // Test invalid negation
         let invalid_neg = Expression::Unary {
             op: TokenKind::Minus,
             expr: Box::new(Expression::Bool(true)),
         };
-        assert!(infer_expr_type(&invalid_neg, &env).is_err());
+        assert!(infer_expr_type(&invalid_neg, &mut env).is_err());
     }
 
     #[test]
     fn test_identifier_lookup() {
-        let env = create_test_env();
-        
-        assert_eq!(infer_expr_type(&Expression::Identifier("x".to_string()), &env), Ok(Type::I64));
-        assert_eq!(infer_expr_type(&Expression::Identifier("y".to_string()), &env), Ok(Type::F64));
-        assert_eq!(infer_expr_type(&Expression::Identifier("b".to_string()), &env), Ok(Type::Bool));
-        
+        let mut env = create_test_env();
+
+        assert_eq!(
+            infer_expr_type(&Expression::Identifier("x".to_string()), &mut env),
+            Ok(Type::I64)
+        );
+        assert_eq!(
+            infer_expr_type(&Expression::Identifier("y".to_string()), &mut env),
+            Ok(Type::F64)
+        );
+        assert_eq!(
+            infer_expr_type(&Expression::Identifier("b".to_string()), &mut env),
+            Ok(Type::Bool)
+        );
+
         // Test undefined identifier
-        assert!(infer_expr_type(&Expression::Identifier("undefined".to_string()), &env).is_err());
+        assert!(
+            infer_expr_type(&Expression::Identifier("undefined".to_string()), &mut env).is_err()
+        );
     }
 
     #[test]
     fn test_function_calls() {
-        let env = create_test_env();
-        
+        let mut env = create_test_env();
+
         // Test valid function call
         let valid_call = Expression::Call {
             callee: Box::new(Expression::Identifier("func".to_string())),
             args: vec![Expression::Integer(1), Expression::Integer(2)],
         };
-        assert_eq!(infer_expr_type(&valid_call, &env), Ok(Type::I64));
+        assert_eq!(infer_expr_type(&valid_call, &mut env), Ok(Type::I64));
 
         // Test wrong number of arguments
         let wrong_args = Expression::Call {
             callee: Box::new(Expression::Identifier("func".to_string())),
             args: vec![Expression::Integer(1)],
         };
-        assert!(infer_expr_type(&wrong_args, &env).is_err());
+        assert!(infer_expr_type(&wrong_args, &mut env).is_err());
 
         // Test wrong argument type
         let wrong_type = Expression::Call {
             callee: Box::new(Expression::Identifier("func".to_string())),
             args: vec![Expression::Integer(1), Expression::Bool(true)],
         };
-        assert!(infer_expr_type(&wrong_type, &env).is_err());
+        assert!(infer_expr_type(&wrong_type, &mut env).is_err());
     }
 
     #[test]
     fn test_array_type_inference() {
-        let env = create_test_env();
-        
+        let mut env = create_test_env();
+
         // Test homogeneous array
         let valid_array = Expression::Array(vec![
             Expression::Integer(1),
@@ -408,7 +584,7 @@ mod tests {
             Expression::Integer(3),
         ]);
         assert_eq!(
-            infer_expr_type(&valid_array, &env),
+            infer_expr_type(&valid_array, &mut env),
             Ok(Type::Array {
                 element_type: Box::new(Type::I64),
                 size: 3
@@ -416,10 +592,7 @@ mod tests {
         );
 
         // Test heterogeneous array (should fail)
-        let invalid_array = Expression::Array(vec![
-            Expression::Integer(1),
-            Expression::Bool(true),
-        ]);
-        assert!(infer_expr_type(&invalid_array, &env).is_err());
+        let invalid_array = Expression::Array(vec![Expression::Integer(1), Expression::Bool(true)]);
+        assert!(infer_expr_type(&invalid_array, &mut env).is_err());
     }
 }

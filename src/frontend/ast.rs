@@ -21,7 +21,9 @@ pub struct Program {
 
 impl Program {
     pub fn new() -> Self {
-        Self { statements: Vec::new() }
+        Self {
+            statements: Vec::new(),
+        }
     }
 
     pub fn add_statement(&mut self, statement: Located<Statement>) {
@@ -55,19 +57,30 @@ pub enum Expression {
 }
 
 impl Expression {
-    pub fn new_binary(lhs: Expression, op: TokenKind, rhs: Expression, line: usize) -> Located<Self> {
-        Located::new(Self::Binary {
-            lhs: Box::new(lhs),
-            op,
-            rhs: Box::new(rhs),
-        }, line)
+    pub fn new_binary(
+        lhs: Expression,
+        op: TokenKind,
+        rhs: Expression,
+        line: usize,
+    ) -> Located<Self> {
+        Located::new(
+            Self::Binary {
+                lhs: Box::new(lhs),
+                op,
+                rhs: Box::new(rhs),
+            },
+            line,
+        )
     }
 
     pub fn new_unary(op: TokenKind, expr: Expression, line: usize) -> Located<Self> {
-        Located::new(Self::Unary {
-            op,
-            expr: Box::new(expr),
-        }, line)
+        Located::new(
+            Self::Unary {
+                op,
+                expr: Box::new(expr),
+            },
+            line,
+        )
     }
 
     pub fn new_integer(value: i64, line: usize) -> Located<Self> {
@@ -99,10 +112,13 @@ impl Expression {
     }
 
     pub fn new_call(callee: Expression, args: Vec<Expression>, line: usize) -> Located<Self> {
-        Located::new(Self::Call {
-            callee: Box::new(callee),
-            args,
-        }, line)
+        Located::new(
+            Self::Call {
+                callee: Box::new(callee),
+                args,
+            },
+            line,
+        )
     }
 
     pub fn new_array(elements: Vec<Expression>, line: usize) -> Located<Self> {
@@ -150,8 +166,22 @@ impl Statement {
         Located::new(Self::Block(block), line)
     }
 
-    pub fn new_function_decl(name: String, params: Vec<(String, Type)>, return_ty: Type, body: Block, line: usize) -> Located<Self> {
-        Located::new(Self::FunctionDecl { name, params, return_ty, body }, line)
+    pub fn new_function_decl(
+        name: String,
+        params: Vec<(String, Type)>,
+        return_ty: Type,
+        body: Block,
+        line: usize,
+    ) -> Located<Self> {
+        Located::new(
+            Self::FunctionDecl {
+                name,
+                params,
+                return_ty,
+                body,
+            },
+            line,
+        )
     }
 
     pub fn new_return_stmt(expr: Option<Expression>, line: usize) -> Located<Self> {
