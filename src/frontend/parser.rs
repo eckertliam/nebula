@@ -1,4 +1,5 @@
 use crate::frontend::scanner::TokenKind;
+use crate::passes::const_fold;
 
 use super::scanner::{Scanner, Token};
 use super::ast::{Block, Expression, Located, Program, Statement};
@@ -163,6 +164,8 @@ fn char_expression<'a>(parser: &mut Parser<'a>) -> Option<Located<Expression>> {
     let value = parser.previous.lexeme.chars().nth(1).unwrap();
     Some(Expression::new_char(value, line))
 }
+
+// TODO: handle array expressions
 
 fn bool_expression<'a>(parser: &mut Parser<'a>) -> Option<Located<Expression>> {
     let line = parser.previous.line;
@@ -437,7 +440,15 @@ fn type_expr<'a>(parser: &mut Parser<'a>) -> Option<Type> {
                 consume(parser, TokenKind::Semicolon, "Expected a semicolon after array type.")?;
                 // parse the size
                 let size = match expression(parser) {
-                    Some(size) => 0,// TODO: eval size at compile time
+                    Some(size) => match const_fold(size.node) {
+                        Some(Expression::Integer(v)) => if v < 0 {
+                            return error_at_previous(parser, "Expected a positive size after array type.");
+                        } else {
+                            v as usize
+                        },
+                        Some(Expression::UnsignedInteger(v)) => v as usize,
+                        _ => return error_at_previous(parser, "Expected a valid size after array type.")
+                    },
                     None => return error_at_previous(parser, "Expected a size after array type.")
                 };
                 // consume the closing bracket
@@ -486,13 +497,13 @@ fn block<'a>(parser: &mut Parser<'a>) -> Option<Block> {
     // advance over the left brace
     advance(parser);
     // parse the statements in the block
-    let mut statements = Vec::new();
+    let mut block = Vec::new();
     while !check_token(parser, TokenKind::RightBrace) && parser.current.kind != TokenKind::Eof {
-        statements.push(statement(parser)?);
+        block.push(statement(parser)?);
     }
     // consume the right brace
     consume(parser, TokenKind::RightBrace, "Expected a right brace after block.")?;
-    Some(Block { statements })
+    Some(block)
 }
 
 fn block_statement<'a>(parser: &mut Parser<'a>) -> Option<Located<Statement>> {
@@ -613,8 +624,6 @@ pub fn parse<'a>(src: &str) -> Option<Program> {
 
 #[cfg(test)]
 mod tests {
-    use crate::frontend::ast::{BinaryExpr, LetDecl};
-
     use super::*;
 
     #[test]
@@ -623,19 +632,16 @@ mod tests {
         let mut parser = Parser::new(scanner);
         let expr = expression(&mut parser);
         assert!(expr.is_some());
-        let top_bin_expr = match expr.unwrap().node {
-            Expression::Binary(bin_expr) => bin_expr,
-            _ => panic!("Expected a binary expression."),
-        };
-        assert_eq!(top_bin_expr.op, TokenKind::Star);
-        let lhs = match *top_bin_expr.lhs {
-            Expression::Binary(bin_expr) => bin_expr,
-            _ => panic!("Expected a binary expression."),
-        };
-        assert_eq!(lhs.op, TokenKind::Plus);
-        assert_eq!(*lhs.lhs, Expression::Integer(1));
-        assert_eq!(*lhs.rhs, Expression::Integer(2));
-        assert_eq!(*top_bin_expr.rhs, Expression::Integer(3));
+        let top_bin_expr = expr.unwrap().node;
+        assert_eq!(top_bin_expr, Expression::Binary {
+            lhs: Box::new(Expression::Binary {
+                lhs: Box::new(Expression::Integer(1)),
+                op: TokenKind::Plus,
+                rhs: Box::new(Expression::Integer(2)),
+            }),
+            op: TokenKind::Star,
+            rhs: Box::new(Expression::Integer(3)),
+        });
     }
 
     #[test]
@@ -644,15 +650,11 @@ mod tests {
         let mut parser = Parser::new(scanner);
         let expr = expression(&mut parser);
         assert!(expr.is_some());
-        let top_call_expr = match expr.unwrap().node {
-            Expression::Call(call_expr) => call_expr,
-            _ => panic!("Expected a call expression."),
-        };
-        assert_eq!(*top_call_expr.callee, Expression::Identifier("func".to_string()));
-        assert_eq!(top_call_expr.args.len(), 3);
-        assert_eq!(top_call_expr.args[0], Expression::Integer(1));
-        assert_eq!(top_call_expr.args[1], Expression::Integer(2));
-        assert_eq!(top_call_expr.args[2], Expression::Integer(3));
+        let top_call_expr = expr.unwrap().node;
+        assert_eq!(top_call_expr, Expression::Call {
+            callee: Box::new(Expression::Identifier("func".to_string())),
+            args: vec![Expression::Integer(1), Expression::Integer(2), Expression::Integer(3)],
+        });
     }
 
     #[test]
@@ -721,18 +723,16 @@ mod tests {
         let mut parser = Parser::new(scanner);
         let expr = expression(&mut parser);
         assert!(expr.is_some());
-        let top_bin_expr = match expr.unwrap().node {
-            Expression::Binary(bin_expr) => bin_expr,
-            _ => panic!("Expected a binary expression."),
-        };
-        assert_eq!(top_bin_expr.op, TokenKind::Plus);
-        assert!(matches!(*top_bin_expr.lhs, Expression::Integer(1)));
-        let _expected_rhs = Expression::Binary(BinaryExpr {
-            op: TokenKind::Star,
-            lhs: Box::new(Expression::Integer(2)),
-            rhs: Box::new(Expression::Integer(3)),
+        let top_bin_expr = expr.unwrap().node;
+        assert_eq!(top_bin_expr, Expression::Binary {
+            lhs: Box::new(Expression::Integer(1)),
+            op: TokenKind::Plus,
+            rhs: Box::new(Expression::Binary {
+                lhs: Box::new(Expression::Integer(2)),
+                op: TokenKind::Star,
+                rhs: Box::new(Expression::Integer(3)),
+            }),
         });
-        assert!(matches!(*top_bin_expr.rhs, _expected_rhs));
     }
 
     #[test]
@@ -741,22 +741,20 @@ mod tests {
         let mut parser = Parser::new(scanner);
         let expr = expression(&mut parser);
         assert!(expr.is_some());
-        let top_unary_expr = match expr.unwrap().node {
-            Expression::Unary(unary_expr) => unary_expr,
-            _ => panic!("Expected a unary expression."),
-        };
-        assert_eq!(top_unary_expr.op, TokenKind::Minus);
-        assert_eq!(*top_unary_expr.expr, Expression::Integer(1));
+        let top_unary_expr = expr.unwrap().node;
+        assert_eq!(top_unary_expr, Expression::Unary {
+            op: TokenKind::Minus,
+            expr: Box::new(Expression::Integer(1)),
+        });
         let scanner = Scanner::new("!true");
         let mut parser = Parser::new(scanner);
         let expr = expression(&mut parser);
         assert!(expr.is_some());
-        let top_unary_expr = match expr.unwrap().node {
-            Expression::Unary(unary_expr) => unary_expr,
-            _ => panic!("Expected a unary expression."),
-        };
-        assert_eq!(top_unary_expr.op, TokenKind::Bang);
-        assert_eq!(*top_unary_expr.expr, Expression::Bool(true));
+        let top_unary_expr = expr.unwrap().node;
+        assert_eq!(top_unary_expr, Expression::Unary {
+            op: TokenKind::Bang,
+            expr: Box::new(Expression::Bool(true)),
+        });
     }
 
     #[test]
@@ -822,21 +820,19 @@ mod tests {
         let mut parser = Parser::new(scanner);
         let stmt = statement(&mut parser);
         assert!(stmt.is_some());
-        let block_stmt = match stmt.unwrap().node {
-            Statement::Block(block_stmt) => block_stmt,
-            _ => panic!("Expected a block statement."),
-        };
-        assert_eq!(block_stmt.statements.len(), 2);
-        assert_eq!(block_stmt.statements[0].node, Statement::LetDecl(LetDecl {
-            name: "x".to_string(),
-            ty: Type::TypeVar("a0".to_string()),// we can infer this because it is the first type variable from type generation
-            value: Expression::Integer(1),
-        }));
-        assert_eq!(block_stmt.statements[1].node, Statement::ExpressionStmt(Expression::Binary(BinaryExpr {
-            op: TokenKind::Plus,
-            lhs: Box::new(Expression::Identifier("x".to_string())),
-            rhs: Box::new(Expression::Integer(2)),
-        })));
+        let block_stmt = stmt.unwrap().node;
+        assert_eq!(block_stmt, Statement::Block(vec![
+            Located::new(Statement::LetDecl {
+                name: "x".to_string(),
+                ty: Type::TypeVar("a0".to_string()),
+                value: Expression::Integer(1),
+            }, 1),
+            Located::new(Statement::ExpressionStmt(Expression::Binary {
+                lhs: Box::new(Expression::Identifier("x".to_string())),
+                op: TokenKind::Plus,
+                rhs: Box::new(Expression::Integer(2)),
+            }), 1),
+        ]));
     }
     
     #[test]
@@ -846,38 +842,40 @@ mod tests {
         let stmt = statement(&mut parser);
         assert!(stmt.is_some());
         let var_decl = match stmt.unwrap().node {
-            Statement::LetDecl(var_decl) => var_decl,
+            Statement::LetDecl { name, ty, value } => (name, ty, value),
             _ => panic!("Expected a variable declaration."),
         };
-        assert_eq!(var_decl.name, "y".to_string());
-        assert_eq!(var_decl.ty, Type::F32);
-        assert_eq!(var_decl.value, Expression::Float(3.14));
+        assert_eq!(var_decl.0, "y".to_string());
+        assert_eq!(var_decl.1, Type::F32);
+        assert_eq!(var_decl.2, Expression::Float(3.14));
+
         let scanner = Scanner::new("const t: bool = true;");
         let mut parser = Parser::new(scanner);
         let stmt = statement(&mut parser);
         assert!(stmt.is_some());
         let var_decl = match stmt.unwrap().node {
-            Statement::ConstDecl(var_decl) => var_decl,
+            Statement::ConstDecl { name, ty, value } => (name, ty, value),
             _ => panic!("Expected a variable declaration."),
         };
-        assert_eq!(var_decl.name, "t".to_string());
-        assert_eq!(var_decl.ty, Type::Bool);
-        assert_eq!(var_decl.value, Expression::Bool(true));
+        assert_eq!(var_decl.0, "t".to_string());
+        assert_eq!(var_decl.1, Type::Bool);
+        assert_eq!(var_decl.2, Expression::Bool(true));
+
         let scanner = Scanner::new("let x = 1 + 1;");
         let mut parser = Parser::new(scanner);
         let stmt = statement(&mut parser);
         assert!(stmt.is_some());
         let var_decl = match stmt.unwrap().node {
-            Statement::LetDecl(var_decl) => var_decl,
+            Statement::LetDecl { name, ty, value } => (name, ty, value),
             _ => panic!("Expected a variable declaration."),
         };
-        assert_eq!(var_decl.name, "x".to_string());
-        assert_eq!(var_decl.ty, Type::TypeVar("a0".to_string()));
-        assert_eq!(var_decl.value, Expression::Binary(BinaryExpr {
-            op: TokenKind::Plus,
+        assert_eq!(var_decl.0, "x".to_string());
+        assert_eq!(var_decl.1, Type::TypeVar("a0".to_string()));
+        assert_eq!(var_decl.2, Expression::Binary {
             lhs: Box::new(Expression::Integer(1)),
+            op: TokenKind::Plus,
             rhs: Box::new(Expression::Integer(1)),
-        }));
+        });
     }
 
     #[test]
@@ -886,28 +884,33 @@ mod tests {
         let mut parser = Parser::new(scanner);
         let stmt = statement(&mut parser);
         assert!(stmt.is_some());
-        let function_decl = match stmt.unwrap().node {
-            Statement::FunctionDecl(function_decl) => function_decl,
-            _ => panic!("Expected a function declaration."),
-        };
-        assert_eq!(function_decl.name, "main".to_string());
-        assert_eq!(function_decl.params.len(), 0);
-        assert_eq!(function_decl.return_ty, Type::Void);
-        assert_eq!(function_decl.body.statements.len(), 1);
+        let function_decl = stmt.unwrap().node;
+        assert_eq!(function_decl, Statement::FunctionDecl { 
+            name: "main".to_string(), 
+            params: vec![], 
+            return_ty: Type::Void, 
+            body: vec![Located::new(Statement::LetDecl { 
+                name: "x".to_string(), 
+                ty: Type::TypeVar("a0".to_string()), 
+                value: Expression::Integer(1), 
+            }, 1)] 
+        });
+
         let scanner = Scanner::new("fn add(x: f32, y: f32) -> f32 { return x + y; }");
         let mut parser = Parser::new(scanner);
         let stmt = statement(&mut parser);
         assert!(stmt.is_some());
-        let function_decl = match stmt.unwrap().node {
-            Statement::FunctionDecl(function_decl) => function_decl,
-            _ => panic!("Expected a function declaration."),
-        };
-        assert_eq!(function_decl.name, "add".to_string());
-        assert_eq!(function_decl.params.len(), 2);
-        assert_eq!(function_decl.params[0], ("x".to_string(), Type::F32));
-        assert_eq!(function_decl.params[1], ("y".to_string(), Type::F32));
-        assert_eq!(function_decl.return_ty, Type::F32);
-        assert_eq!(function_decl.body.statements.len(), 1);
+        let function_decl = stmt.unwrap().node;
+        assert_eq!(function_decl, Statement::FunctionDecl { 
+            name: "add".to_string(), 
+            params: vec![("x".to_string(), Type::F32), ("y".to_string(), Type::F32)], 
+            return_ty: Type::F32, 
+            body: vec![Located::new(Statement::ReturnStmt(Some(Expression::Binary {
+                lhs: Box::new(Expression::Identifier("x".to_string())),
+                op: TokenKind::Plus,
+                rhs: Box::new(Expression::Identifier("y".to_string())),
+            })), 1)] 
+        });
     }
 
     #[test]
@@ -916,13 +919,10 @@ mod tests {
         let mut parser = Parser::new(scanner);
         let stmt = statement(&mut parser);
         assert!(stmt.is_some());
-        let expr_stmt = match stmt.unwrap().node {
-            Statement::ExpressionStmt(expr_stmt) => expr_stmt,
-            _ => panic!("Expected an expression statement."),
-        };
-        assert_eq!(expr_stmt, Expression::Binary(BinaryExpr {
-            op: TokenKind::Plus,
+        let expr_stmt = stmt.unwrap().node;
+        assert_eq!(expr_stmt, Statement::ExpressionStmt(Expression::Binary {
             lhs: Box::new(Expression::Identifier("x".to_string())),
+            op: TokenKind::Plus,
             rhs: Box::new(Expression::Integer(1)),
         }));
     }
@@ -933,20 +933,14 @@ mod tests {
         let mut parser = Parser::new(scanner);
         let stmt = statement(&mut parser);
         assert!(stmt.is_some());
-        let return_stmt = match stmt.unwrap().node {
-            Statement::ReturnStmt(return_stmt) => return_stmt,
-            _ => panic!("Expected a return statement."),
-        };
-        assert_eq!(return_stmt, Some(Expression::Integer(1)));
+        let return_stmt = stmt.unwrap().node;
+        assert_eq!(return_stmt, Statement::ReturnStmt(Some(Expression::Integer(1))));
         let scanner = Scanner::new("return;");
         let mut parser = Parser::new(scanner);
         let stmt = statement(&mut parser);
         assert!(stmt.is_some());
-        let return_stmt = match stmt.unwrap().node {
-            Statement::ReturnStmt(return_stmt) => return_stmt,
-            _ => panic!("Expected a return statement."),
-        };
-        assert_eq!(return_stmt, None);
+        let return_stmt = stmt.unwrap().node;
+        assert_eq!(return_stmt, Statement::ReturnStmt(None));
     }
 
     #[test]

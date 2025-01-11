@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TokenKind {
     LeftParen,
@@ -52,6 +54,62 @@ pub enum TokenKind {
     Eof,
     Error,
     Empty,
+}
+
+impl Display for TokenKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TokenKind::LeftParen => write!(f, "("),
+            TokenKind::RightParen => write!(f, ")"),
+            TokenKind::LeftBrace => write!(f, "{{"),
+            TokenKind::RightBrace => write!(f, "}}"),
+            TokenKind::LeftBracket => write!(f, "["),
+            TokenKind::RightBracket => write!(f, "]"),
+            TokenKind::Comma => write!(f, ","),
+            TokenKind::Dot => write!(f, "."),
+            TokenKind::Semicolon => write!(f, ";"),
+            TokenKind::Colon => write!(f, ":"),
+            TokenKind::ColonColon => write!(f, "::"),
+            TokenKind::Arrow => write!(f, "->"),
+            TokenKind::FatArrow => write!(f, "=>"),
+            TokenKind::Plus => write!(f, "+"),
+            TokenKind::Minus => write!(f, "-"),
+            TokenKind::Star => write!(f, "*"),
+            TokenKind::Slash => write!(f, "/"),
+            TokenKind::Modulo => write!(f, "%"),
+            TokenKind::Bang => write!(f, "!"),
+            TokenKind::Eq => write!(f, "="),
+            TokenKind::EqEq => write!(f, "=="),
+            TokenKind::BangEq => write!(f, "!="),
+            TokenKind::Lt => write!(f, "<"),
+            TokenKind::Gt => write!(f, ">"),
+            TokenKind::LtEq => write!(f, "<="),
+            TokenKind::GtEq => write!(f, ">="),
+            TokenKind::And => write!(f, "and"),
+            TokenKind::Or => write!(f, "or"),
+            TokenKind::If => write!(f, "if"),
+            TokenKind::Else => write!(f, "else"),
+            TokenKind::True => write!(f, "true"),
+            TokenKind::False => write!(f, "false"),
+            TokenKind::Return => write!(f, "return"),
+            TokenKind::Const => write!(f, "const"),
+            TokenKind::Let => write!(f, "let"),
+            TokenKind::Fn => write!(f, "fn"),
+            TokenKind::While => write!(f, "while"),
+            TokenKind::Loop => write!(f, "loop"),
+            TokenKind::For => write!(f, "for"),
+            TokenKind::In => write!(f, "in"),
+            TokenKind::Break => write!(f, "break"),
+            TokenKind::Continue => write!(f, "continue"),
+            TokenKind::Number => write!(f, "<number>"),
+            TokenKind::String => write!(f, "<string>"),
+            TokenKind::Char => write!(f, "<char>"),
+            TokenKind::Identifier => write!(f, "<identifier>"),
+            TokenKind::Eof => write!(f, "<eof>"),
+            TokenKind::Error => write!(f, "<error>"),
+            TokenKind::Empty => write!(f, "<empty>"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]

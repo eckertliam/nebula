@@ -21,7 +21,9 @@ pub struct Program {
 
 impl Program {
     pub fn new() -> Self {
-        Self { statements: Vec::new() }
+        Self {
+            statements: Vec::new(),
+        }
     }
 
     pub fn add_statement(&mut self, statement: Located<Statement>) {
@@ -31,8 +33,15 @@ impl Program {
 
 #[derive(Debug, PartialEq)]
 pub enum Expression {
-    Binary(BinaryExpr),
-    Unary(UnaryExpr),
+    Binary {
+        lhs: Box<Expression>,
+        op: TokenKind,
+        rhs: Box<Expression>,
+    },
+    Unary {
+        op: TokenKind,
+        expr: Box<Expression>,
+    },
     Integer(i64),
     UnsignedInteger(u64),
     Char(char),
@@ -40,23 +49,38 @@ pub enum Expression {
     Float(f64),
     Bool(bool),
     Identifier(String),
-    Call(CallExpr),
+    Call {
+        callee: Box<Expression>,
+        args: Vec<Expression>,
+    },
+    Array(Vec<Expression>),
 }
 
 impl Expression {
-    pub fn new_binary(lhs: Expression, op: TokenKind, rhs: Expression, line: usize) -> Located<Self> {
-        Located::new(Self::Binary(BinaryExpr {
-            lhs: Box::new(lhs),
-            op,
-            rhs: Box::new(rhs),
-        }), line)
+    pub fn new_binary(
+        lhs: Expression,
+        op: TokenKind,
+        rhs: Expression,
+        line: usize,
+    ) -> Located<Self> {
+        Located::new(
+            Self::Binary {
+                lhs: Box::new(lhs),
+                op,
+                rhs: Box::new(rhs),
+            },
+            line,
+        )
     }
 
     pub fn new_unary(op: TokenKind, expr: Expression, line: usize) -> Located<Self> {
-        Located::new(Self::Unary(UnaryExpr {
-            op,
-            expr: Box::new(expr),
-        }), line)
+        Located::new(
+            Self::Unary {
+                op,
+                expr: Box::new(expr),
+            },
+            line,
+        )
     }
 
     pub fn new_integer(value: i64, line: usize) -> Located<Self> {
@@ -88,20 +112,40 @@ impl Expression {
     }
 
     pub fn new_call(callee: Expression, args: Vec<Expression>, line: usize) -> Located<Self> {
-        Located::new(Self::Call(CallExpr {
-            callee: Box::new(callee),
-            args,
-        }), line)
+        Located::new(
+            Self::Call {
+                callee: Box::new(callee),
+                args,
+            },
+            line,
+        )
+    }
+
+    pub fn new_array(elements: Vec<Expression>, line: usize) -> Located<Self> {
+        Located::new(Self::Array(elements), line)
     }
 }
 
 #[derive(Debug, PartialEq)]
 pub enum Statement {
     ExpressionStmt(Expression),
-    ConstDecl(ConstDecl),
-    LetDecl(LetDecl),
+    ConstDecl {
+        name: String,
+        ty: Type,
+        value: Expression,
+    },
+    LetDecl {
+        name: String,
+        ty: Type,
+        value: Expression,
+    },
     Block(Block),
-    FunctionDecl(FunctionDecl),
+    FunctionDecl {
+        name: String,
+        params: Vec<(String, Type)>,
+        return_ty: Type,
+        body: Block,
+    },
     ReturnStmt(Option<Expression>),
 }
 
@@ -111,19 +155,33 @@ impl Statement {
     }
 
     pub fn new_const_decl(name: String, ty: Type, value: Expression, line: usize) -> Located<Self> {
-        Located::new(Self::ConstDecl(ConstDecl { name, ty, value }), line)
+        Located::new(Self::ConstDecl { name, ty, value }, line)
     }
 
     pub fn new_let_decl(name: String, ty: Type, value: Expression, line: usize) -> Located<Self> {
-        Located::new(Self::LetDecl(LetDecl { name, ty, value }), line)
+        Located::new(Self::LetDecl { name, ty, value }, line)
     }
 
     pub fn new_block(block: Block, line: usize) -> Located<Self> {
         Located::new(Self::Block(block), line)
     }
 
-    pub fn new_function_decl(name: String, params: Vec<(String, Type)>, return_ty: Type, body: Block, line: usize) -> Located<Self> {
-        Located::new(Self::FunctionDecl(FunctionDecl { name, params, return_ty, body }), line)
+    pub fn new_function_decl(
+        name: String,
+        params: Vec<(String, Type)>,
+        return_ty: Type,
+        body: Block,
+        line: usize,
+    ) -> Located<Self> {
+        Located::new(
+            Self::FunctionDecl {
+                name,
+                params,
+                return_ty,
+                body,
+            },
+            line,
+        )
     }
 
     pub fn new_return_stmt(expr: Option<Expression>, line: usize) -> Located<Self> {
@@ -131,48 +189,4 @@ impl Statement {
     }
 }
 
-#[derive(Debug, PartialEq)]
-pub struct Block {
-    pub statements: Vec<Located<Statement>>,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct ConstDecl {
-    pub name: String,
-    pub ty: Type,
-    pub value: Expression,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct LetDecl {
-    pub name: String,
-    pub ty: Type,
-    pub value: Expression,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct FunctionDecl {
-    pub name: String,
-    pub params: Vec<(String, Type)>,
-    pub return_ty: Type,
-    pub body: Block,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct BinaryExpr {
-    pub lhs: Box<Expression>,
-    pub op: TokenKind,
-    pub rhs: Box<Expression>,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct UnaryExpr {
-    pub op: TokenKind,
-    pub expr: Box<Expression>,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct CallExpr {
-    pub callee: Box<Expression>,
-    pub args: Vec<Expression>,
-}
+pub type Block = Vec<Located<Statement>>;

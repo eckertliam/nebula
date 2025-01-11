@@ -25,6 +25,10 @@ fn main() {
             std::process::exit(1);
         }
     };
+    let Ok(type_env) = passes::type_check_program(&program) else {
+        eprintln!("Error: Failed to type check program");
+        std::process::exit(1);
+    };
     // TODO: add passes and codegen here
     println!("{:?}", program);
 }
