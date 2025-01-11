@@ -1,4 +1,8 @@
-use crate::{Block, Expression, Statement, TokenKind, Type, TypeEnv};
+use crate::{Block, Expression, Program, Statement, TokenKind, Type, TypeEnv};
+
+// TODO: add handling for type var identifiers in expressions such as let x: TypeVar = 1; then x is a type var and let y = x + 1; will need resolution
+// TODO: add handling for function calls in which the the callee has type vars in its signature
+// TODO: add handling of UDTs
 
 /// Returns the type that the expression qualifies for
 fn infer_expr_type(expr: &Expression, type_env: &mut TypeEnv) -> Result<Type, String> {
@@ -324,33 +328,14 @@ fn type_check_fn(
     return_ty: &Type,
     body: &Block,
 ) -> Result<Type, String> {
-    // get the fn sig from the type env
-    let fn_sig = type_env
-        .fn_sig
-        .clone()
-        .ok_or(format!("Function signature not found in type environment"))?;
-    // stmt should be a function definition. check if it is then check that fn_sig param types and length match its params
-    if params.len() != fn_sig.0.len() {
-        return Err(format!(
-            "Function {} has {} params, expected {}",
-            name,
-            params.len(),
-            fn_sig.0.len()
-        ));
-    }
-    // validate each param type and enter it into the type env
-    for (param, expected_type) in params.iter().zip(fn_sig.0.iter()) {
-        if param.1 != *expected_type {
-            return Err(format!(
-                "Function {} has param type {}, expected {}",
-                name, param.1, expected_type
-            ));
-        } else {
-            type_env.insert(&param.0, expected_type.clone());
-        }
-    }
+    // create a new type env for the function
+    let mut fn_type_env = type_env.child();
+    fn_type_env.fn_sig = Some((
+        params.iter().map(|(_, ty)| ty.clone()).collect(),
+        return_ty.clone(),
+    ));
     // type check the body of the function
-    let actual_ret_ty = type_check_block(type_env, body)?;
+    let actual_ret_ty = type_check_block(&mut fn_type_env, body)?;
     if actual_ret_ty != *return_ty {
         return Err(format!(
             "Function {} has return type {}, expected {}",
@@ -358,6 +343,17 @@ fn type_check_fn(
         ));
     }
     Ok(actual_ret_ty)
+}
+
+// Type check a program and return a new TypeEnv with the types of the program
+pub fn type_check_program(program: &Program) -> Result<TypeEnv, ()> {
+    let mut type_env = TypeEnv::new();
+    for stmt in program.statements.iter() {
+        if let Err(e) = type_check_stmt(&mut type_env, &stmt.node) {
+            eprintln!("Error: {} on line {}", e, stmt.line);
+        }
+    }
+    Ok(type_env)
 }
 
 #[cfg(test)]
