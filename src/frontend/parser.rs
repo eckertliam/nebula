@@ -489,6 +489,7 @@ fn statement<'a>(parser: &mut Parser<'a>) -> Option<Located<Statement>> {
         TokenKind::Fn => function_declaration(parser),
         TokenKind::LeftBrace => block_statement(parser),
         TokenKind::Return => return_statement(parser),
+        TokenKind::Record => record_declaration(parser),
         _ => expression_statement(parser),
     }
 }
@@ -616,9 +617,18 @@ fn parse_record_fields<'a>(parser: &mut Parser<'a>) -> Option<Vec<(String, Type)
     // parse the fields
     let mut fields = Vec::new();
     while !check_token(parser, TokenKind::RightBrace) {
+        // advance over the identifier
+        advance(parser);
         let name = parser.previous.lexeme.to_string();
+        // expect a colon
+        consume(parser, TokenKind::Colon, "Expected a colon after record field name.")?;
+        // parse the type
         let ty = type_expr(parser)?;
         fields.push((name, ty));
+        // check for a comma
+        if !match_token(parser, TokenKind::Comma) {
+            break;
+        }
     }
     // consume the right brace
     consume(parser, TokenKind::RightBrace, "Expected a right brace after record declaration.")?;
@@ -628,10 +638,13 @@ fn parse_record_fields<'a>(parser: &mut Parser<'a>) -> Option<Vec<(String, Type)
 fn record_declaration<'a>(parser: &mut Parser<'a>) -> Option<Located<Statement>> {
     // advance over the record keyword
     advance(parser);
+    // advance over the identifier
+    advance(parser);
     let line = parser.previous.line;
     let name = parser.previous.lexeme.to_string();
     let fields = parse_record_fields(parser)?;
-    Some(Statement::new_record_decl(name, fields, line))
+    // TODO: add generic handling
+    Some(Statement::new_record_decl(name, vec![], fields, line))
 }
 
 // top level parsing =====
@@ -973,4 +986,22 @@ mod tests {
         let program = parse(src).unwrap();
         assert_eq!(program.statements.len(), 2);
     }
+
+    #[test]
+    fn test_record_declaration() {
+        let scanner = Scanner::new("record Point { x: f32, y: f32 }");
+        let mut parser = Parser::new(scanner);
+        let stmt = statement(&mut parser);
+        assert!(stmt.is_some());
+        let record_decl = stmt.unwrap().node;
+        assert_eq!(record_decl, Statement::RecordDecl { 
+            name: "Point".to_string(),
+            generics: vec![],
+            fields: vec![
+                ("x".to_string(), Type::F32),
+                ("y".to_string(), Type::F32),
+            ],
+        });
+    }
 }
+

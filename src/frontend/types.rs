@@ -26,10 +26,18 @@ pub enum Type {
         size: usize,
     },
     TypeVar(String),
-    Record {
+    Udt {
         name: String,
-        fields: Vec<(String, Type)>,
-    },
+        args: Vec<Type>,
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Record {
+    pub name: String,
+    // type vars
+    pub generics: Vec<Type>,
+    pub fields: Vec<(String, Type)>,
 }
 
 impl Display for Type {
@@ -70,14 +78,7 @@ impl Display for Type {
             }
             Type::Array { element_type, size } => write!(f, "[{}; {}]", element_type, size),
             Type::TypeVar(name) => write!(f, "{}", name),
-            Type::Record { name, fields } => {
-                let fields_str = fields
-                    .iter()
-                    .map(|(name, ty)| format!("{}: {},", name, ty))
-                    .collect::<Vec<String>>()
-                    .join(", ");
-                write!(f, "{} {{ {} }}", name, fields_str)
-            }
+            Type::Udt { name, args } => write!(f, "{}<{}>", name, args.iter().map(|t| t.to_string()).collect::<Vec<String>>().join(", ")),
         }
     }
 }
@@ -88,7 +89,8 @@ type FnSig = (Vec<Type>, Type);
 pub struct TypeEnv {
     pub fn_sig: Option<FnSig>,
     parent: Option<Rc<RefCell<TypeEnv>>>,
-    map: HashMap<String, Type>,
+    bindings: HashMap<String, Type>,
+    record_types: HashMap<String, Record>,
 }
 
 impl TypeEnv {
@@ -97,7 +99,8 @@ impl TypeEnv {
         Self {
             fn_sig: None,
             parent: None,
-            map: HashMap::new(),
+            bindings: HashMap::new(),
+            record_types: HashMap::new(),
         }
     }
 
@@ -106,7 +109,8 @@ impl TypeEnv {
         Self {
             fn_sig: None,
             parent: Some(Rc::new(RefCell::new(self.clone()))),
-            map: HashMap::new(),
+            bindings: HashMap::new(),
+            record_types: HashMap::new(),
         }
     }
 
@@ -115,28 +119,46 @@ impl TypeEnv {
         Self {
             fn_sig: Some((params, return_type)),
             parent: Some(Rc::new(RefCell::new(self.clone()))),
-            map: HashMap::new(),
+            bindings: HashMap::new(),
+            record_types: HashMap::new(),
         }
     }
 
     pub fn get(&self, ident: &str) -> Option<Type> {
-        self.map
+        self.bindings
             .get(ident)
             .cloned()
             .or_else(|| self.parent.as_ref().and_then(|p| p.borrow().get(ident)))
     }
 
+    pub fn get_record(&self, ident: &str) -> Option<Record> {
+        self.record_types.get(ident).cloned()
+    }
+
     /// inserts a type into the top level type environment
     pub fn insert_top(&mut self, ident: &str, ty: Type) {
         if self.parent.is_none() {
-            self.map.insert(ident.to_string(), ty);
+            self.bindings.insert(ident.to_string(), ty);
         } else {
             self.parent.as_ref().unwrap().borrow_mut().insert_top(ident, ty);
         }
     }
 
+    pub fn insert_record_top(&mut self, record: Record) -> Result<(), String> {
+        if self.parent.is_none() {
+            // ensure that the record name is not already in the type env
+            if self.record_types.contains_key(&record.name) {
+                return Err(format!("Record {} already exists in the type environment", record.name));
+            }
+            self.record_types.insert(record.name.clone(), record);
+            Ok(())
+        } else {
+            self.parent.as_ref().unwrap().borrow_mut().insert_record_top(record)
+        }
+    }
+
     pub fn insert(&mut self, ident: &str, ty: Type) {
-        self.map.insert(ident.to_string(), ty);
+        self.bindings.insert(ident.to_string(), ty);
     }
 }
 
