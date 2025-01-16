@@ -1,8 +1,28 @@
-use crate::{Block, Expression, Program, Statement, TokenKind, Type, TypeEnv};
+use crate::{Block, Expression, Program, Record, Statement, TokenKind, Type, TypeEnv};
 
 // TODO: add handling for type var identifiers in expressions such as let x: TypeVar = 1; then x is a type var and let y = x + 1; will need resolution
 // TODO: add handling for function calls in which the the callee has type vars in its signature
-// TODO: add handling of UDTs
+
+// First pass over program to add UDTs to type env
+// UDT pass
+
+fn add_udt_pass(program: &Program, type_env: &mut TypeEnv) -> Result<Program, String> {
+    // create a new program with all UDT definitions removed
+    // add all UDTs to the type env
+    let mut new_program = Program::new();
+    for stmt in program.statements.iter() {
+        match &stmt.node {
+            Statement::RecordDecl { name, fields, generics } => {
+                type_env.insert_record_top(Record { name: name.clone(), generics: generics.clone(), fields: fields.clone() })?;
+            }
+            _ => new_program.add_statement(stmt.clone()),
+        }
+    }
+    Ok(new_program)
+}
+
+// Type check pass
+
 
 /// Returns the type that the expression qualifies for
 fn infer_expr_type(expr: &Expression, type_env: &mut TypeEnv) -> Result<Type, String> {
@@ -176,7 +196,7 @@ fn infer_unary_expr_type(
 }
 
 fn infer_ident_expr_type(ident: &str, type_env: &mut TypeEnv) -> Result<Type, String> {
-    match type_env.get(ident).cloned() {
+    match type_env.get(ident) {
         Some(Type::TypeVar(name)) => Err(format!("Type variable {} not resolved", name)),
         Some(ty) => Ok(ty),
         None => Err(format!(
@@ -258,6 +278,7 @@ fn type_check_stmt(type_env: &mut TypeEnv, stmt: &Statement) -> Result<Type, Str
             body,
         } => type_check_fn(type_env, name, params, return_ty, body),
         Statement::ReturnStmt(expr) => type_check_return_stmt(type_env, expr),
+        _ => Err(format!("Unexpected statement type: {:?}", stmt)),
     }
 }
 
@@ -321,8 +342,8 @@ fn type_check_block(type_env: &mut TypeEnv, block: &Block) -> Result<Type, Strin
 
 /// type checks a function and its body
 /// enters a new type env for the function and returns the type of the function if body is valid
-fn type_check_fn(
-    type_env: &mut TypeEnv,
+fn type_check_fn<'a>(
+    type_env: &'a mut TypeEnv,
     name: &str,
     params: &Vec<(String, Type)>,
     return_ty: &Type,
@@ -347,7 +368,15 @@ fn type_check_fn(
 
 // Type check a program and return a new TypeEnv with the types of the program
 pub fn type_check_program(program: &Program) -> Result<TypeEnv, ()> {
+    // add UDTs to the type env
     let mut type_env = TypeEnv::new();
+    let program = match add_udt_pass(program, &mut type_env) {
+        Ok(program) => program,
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            return Err(());
+        }
+    };
     for stmt in program.statements.iter() {
         if let Err(e) = type_check_stmt(&mut type_env, &stmt.node) {
             eprintln!("Error: {} on line {}", e, stmt.line);
@@ -361,7 +390,7 @@ mod tests {
     use super::*;
     use crate::TokenKind;
 
-    fn create_test_env() -> TypeEnv<'static> {
+    fn create_test_env() -> TypeEnv {
         let mut env = TypeEnv::new();
         env.insert("x", Type::I64);
         env.insert("y", Type::F64);

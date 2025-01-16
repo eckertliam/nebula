@@ -2,7 +2,7 @@ use crate::frontend::scanner::TokenKind;
 
 use super::types::Type;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Located<T> {
     pub node: T,
     pub line: usize,
@@ -14,7 +14,7 @@ impl<T> Located<T> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Program {
     pub statements: Vec<Located<Statement>>,
 }
@@ -31,7 +31,7 @@ impl Program {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Expression {
     Binary {
         lhs: Box<Expression>,
@@ -126,7 +126,7 @@ impl Expression {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Statement {
     ExpressionStmt(Expression),
     ConstDecl {
@@ -147,6 +147,11 @@ pub enum Statement {
         body: Block,
     },
     ReturnStmt(Option<Expression>),
+    RecordDecl {
+        name: String,
+        generics: Vec<Type>,// TODO: add generics
+        fields: Vec<(String, Type)>,
+    },
 }
 
 impl Statement {
@@ -186,6 +191,10 @@ impl Statement {
 
     pub fn new_return_stmt(expr: Option<Expression>, line: usize) -> Located<Self> {
         Located::new(Self::ReturnStmt(expr), line)
+    }
+
+    pub fn new_record_decl(name: String, generics: Vec<Type>, fields: Vec<(String, Type)>, line: usize) -> Located<Self> {
+        Located::new(Self::RecordDecl { name, generics, fields }, line)
     }
 }
 
