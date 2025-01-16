@@ -147,6 +147,10 @@ pub enum Statement {
         body: Block,
     },
     ReturnStmt(Option<Expression>),
+    RecordDecl {
+        name: String,
+        fields: Vec<(String, Type)>,
+    },
 }
 
 impl Statement {
@@ -186,6 +190,10 @@ impl Statement {
 
     pub fn new_return_stmt(expr: Option<Expression>, line: usize) -> Located<Self> {
         Located::new(Self::ReturnStmt(expr), line)
+    }
+
+    pub fn new_record_decl(name: String, fields: Vec<(String, Type)>, line: usize) -> Located<Self> {
+        Located::new(Self::RecordDecl { name, fields }, line)
     }
 }
 

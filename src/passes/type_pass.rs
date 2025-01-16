@@ -2,7 +2,19 @@ use crate::{Block, Expression, Program, Statement, TokenKind, Type, TypeEnv};
 
 // TODO: add handling for type var identifiers in expressions such as let x: TypeVar = 1; then x is a type var and let y = x + 1; will need resolution
 // TODO: add handling for function calls in which the the callee has type vars in its signature
-// TODO: add handling of UDTs
+
+
+// Pass to add record types to type env
+fn add_record_type(type_env: &mut TypeEnv, name: &str, fields: &Vec<(String, Type)>) -> Result<Type, String> {
+    // create a new record type
+    let record_type = Type::Record {
+        name: name.to_string(),
+        fields: fields.to_vec(),
+    };
+    // insert the record type into the top level type env
+    type_env.insert_top(name, record_type.clone());
+    Ok(record_type)
+}
 
 /// Returns the type that the expression qualifies for
 fn infer_expr_type(expr: &Expression, type_env: &mut TypeEnv) -> Result<Type, String> {
@@ -176,7 +188,7 @@ fn infer_unary_expr_type(
 }
 
 fn infer_ident_expr_type(ident: &str, type_env: &mut TypeEnv) -> Result<Type, String> {
-    match type_env.get(ident).cloned() {
+    match type_env.get(ident) {
         Some(Type::TypeVar(name)) => Err(format!("Type variable {} not resolved", name)),
         Some(ty) => Ok(ty),
         None => Err(format!(
@@ -258,6 +270,7 @@ fn type_check_stmt(type_env: &mut TypeEnv, stmt: &Statement) -> Result<Type, Str
             body,
         } => type_check_fn(type_env, name, params, return_ty, body),
         Statement::ReturnStmt(expr) => type_check_return_stmt(type_env, expr),
+        Statement::RecordDecl { name, fields } => add_record_type(type_env, name, fields),
     }
 }
 
@@ -321,8 +334,8 @@ fn type_check_block(type_env: &mut TypeEnv, block: &Block) -> Result<Type, Strin
 
 /// type checks a function and its body
 /// enters a new type env for the function and returns the type of the function if body is valid
-fn type_check_fn(
-    type_env: &mut TypeEnv,
+fn type_check_fn<'a>(
+    type_env: &'a mut TypeEnv,
     name: &str,
     params: &Vec<(String, Type)>,
     return_ty: &Type,
@@ -361,7 +374,7 @@ mod tests {
     use super::*;
     use crate::TokenKind;
 
-    fn create_test_env() -> TypeEnv<'static> {
+    fn create_test_env() -> TypeEnv {
         let mut env = TypeEnv::new();
         env.insert("x", Type::I64);
         env.insert("y", Type::F64);

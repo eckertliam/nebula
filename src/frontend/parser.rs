@@ -610,6 +610,30 @@ fn return_statement<'a>(parser: &mut Parser<'a>) -> Option<Located<Statement>> {
     }
 }
 
+fn parse_record_fields<'a>(parser: &mut Parser<'a>) -> Option<Vec<(String, Type)>> {
+    // expect a left brace
+    consume(parser, TokenKind::LeftBrace, "Expected a left brace after record declaration.")?;
+    // parse the fields
+    let mut fields = Vec::new();
+    while !check_token(parser, TokenKind::RightBrace) {
+        let name = parser.previous.lexeme.to_string();
+        let ty = type_expr(parser)?;
+        fields.push((name, ty));
+    }
+    // consume the right brace
+    consume(parser, TokenKind::RightBrace, "Expected a right brace after record declaration.")?;
+    Some(fields)
+}
+
+fn record_declaration<'a>(parser: &mut Parser<'a>) -> Option<Located<Statement>> {
+    // advance over the record keyword
+    advance(parser);
+    let line = parser.previous.line;
+    let name = parser.previous.lexeme.to_string();
+    let fields = parse_record_fields(parser)?;
+    Some(Statement::new_record_decl(name, fields, line))
+}
+
 // top level parsing =====
 
 pub fn parse<'a>(src: &str) -> Option<Program> {

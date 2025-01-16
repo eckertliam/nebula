@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display};
+use std::{cell::RefCell, collections::HashMap, fmt::Display, rc::Rc};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Type {
@@ -26,6 +26,10 @@ pub enum Type {
         size: usize,
     },
     TypeVar(String),
+    Record {
+        name: String,
+        fields: Vec<(String, Type)>,
+    },
 }
 
 impl Display for Type {
@@ -45,29 +49,49 @@ impl Display for Type {
             Type::Char => write!(f, "char"),
             Type::String => write!(f, "string"),
             Type::Void => write!(f, "void"),
-            Type::Function { params, return_type } => {
-                let params_str = params.iter().map(|p| p.to_string()).collect::<Vec<String>>().join(", ");
+            Type::Function {
+                params,
+                return_type,
+            } => {
+                let params_str = params
+                    .iter()
+                    .map(|p| p.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", ");
                 write!(f, "fn({}) -> {}", params_str, return_type)
             }
             Type::Tuple(types) => {
-                let types_str = types.iter().map(|t| t.to_string()).collect::<Vec<String>>().join(", ");
+                let types_str = types
+                    .iter()
+                    .map(|t| t.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", ");
                 write!(f, "({})", types_str)
             }
             Type::Array { element_type, size } => write!(f, "[{}; {}]", element_type, size),
             Type::TypeVar(name) => write!(f, "{}", name),
+            Type::Record { name, fields } => {
+                let fields_str = fields
+                    .iter()
+                    .map(|(name, ty)| format!("{}: {},", name, ty))
+                    .collect::<Vec<String>>()
+                    .join(", ");
+                write!(f, "{} {{ {} }}", name, fields_str)
+            }
         }
     }
 }
 
-type FnSig   = (Vec<Type>, Type);
+type FnSig = (Vec<Type>, Type);
 
-pub struct TypeEnv<'t> {
+#[derive(Clone)]
+pub struct TypeEnv {
     pub fn_sig: Option<FnSig>,
-    parent: Option<Box<&'t TypeEnv<'t>>>,
+    parent: Option<Rc<RefCell<TypeEnv>>>,
     map: HashMap<String, Type>,
 }
 
-impl<'t> TypeEnv<'t> {
+impl TypeEnv {
     /// creates a new type environment
     pub fn new() -> Self {
         Self {
@@ -78,26 +102,37 @@ impl<'t> TypeEnv<'t> {
     }
 
     /// creates a child environment
-    pub fn child(&'t self) -> Self {
+    pub fn child(&self) -> Self {
         Self {
             fn_sig: None,
-            parent: Some(Box::new(self)),
+            parent: Some(Rc::new(RefCell::new(self.clone()))),
             map: HashMap::new(),
         }
     }
 
     /// creates a child environment with a function signature
-    /// this is the type environment for a function
-    pub fn child_fn(&'t self, params: Vec<Type>, return_type: Type) -> Self {
+    pub fn child_fn(&self, params: Vec<Type>, return_type: Type) -> Self {
         Self {
             fn_sig: Some((params, return_type)),
-            parent: Some(Box::new(self)),
+            parent: Some(Rc::new(RefCell::new(self.clone()))),
             map: HashMap::new(),
         }
     }
 
-    pub fn get(&self, ident: &str) -> Option<&Type> {
-        self.map.get(ident).or_else(|| self.parent.as_ref().and_then(|p| p.get(ident)))
+    pub fn get(&self, ident: &str) -> Option<Type> {
+        self.map
+            .get(ident)
+            .cloned()
+            .or_else(|| self.parent.as_ref().and_then(|p| p.borrow().get(ident)))
+    }
+
+    /// inserts a type into the top level type environment
+    pub fn insert_top(&mut self, ident: &str, ty: Type) {
+        if self.parent.is_none() {
+            self.map.insert(ident.to_string(), ty);
+        } else {
+            self.parent.as_ref().unwrap().borrow_mut().insert_top(ident, ty);
+        }
     }
 
     pub fn insert(&mut self, ident: &str, ty: Type) {
@@ -106,8 +141,8 @@ impl<'t> TypeEnv<'t> {
 }
 
 const ALPHA: [char; 26] = [
-    'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 
-    'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'
+    'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
+    't', 'u', 'v', 'w', 'x', 'y', 'z',
 ];
 
 const ALPHA_LEN: u8 = ALPHA.len() as u8;
