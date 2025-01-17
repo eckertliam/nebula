@@ -46,6 +46,7 @@ pub enum TokenKind {
     Break,
     Continue,
     Record,
+    Type,
     // Literals
     Number,
     String,
@@ -103,6 +104,7 @@ impl Display for TokenKind {
             TokenKind::Break => write!(f, "break"),
             TokenKind::Continue => write!(f, "continue"),
             TokenKind::Record => write!(f, "record"),
+            TokenKind::Type => write!(f, "type"),
             TokenKind::Number => write!(f, "<number>"),
             TokenKind::String => write!(f, "<string>"),
             TokenKind::Char => write!(f, "<char>"),
@@ -215,6 +217,7 @@ impl<'a> Scanner<'a> {
             "break" => TokenKind::Break,
             "continue" => TokenKind::Continue,
             "record" => TokenKind::Record,
+            "type" => TokenKind::Type,
             _ => TokenKind::Identifier,
         };
 
