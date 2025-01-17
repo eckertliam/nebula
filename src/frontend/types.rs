@@ -32,14 +32,6 @@ pub enum Type {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
-pub struct Record {
-    pub name: String,
-    // type vars
-    pub generics: Vec<Type>,
-    pub fields: Vec<(String, Type)>,
-}
-
 impl Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -83,6 +75,37 @@ impl Display for Type {
     }
 }
 
+#[derive(Debug, PartialEq, Clone)]
+pub enum Udt {
+    Record {
+        name: String,
+        generics: Vec<Type>,
+        fields: Vec<(String, Type)>,
+    },
+    Alias {
+        name: String,
+        generics: Vec<Type>,
+        ty: Type,
+    }
+}
+
+impl Udt {
+    pub fn new_record(name: String, generics: Vec<Type>, fields: Vec<(String, Type)>) -> Self {
+        Self::Record { name, generics, fields }
+    }
+
+    pub fn new_alias(name: String, generics: Vec<Type>, ty: Type) -> Self {
+        Self::Alias { name, generics, ty }
+    }
+
+    pub fn name(&self) -> &str {
+        match self {
+            Udt::Record { name, .. } => name,
+            Udt::Alias { name, .. } => name,
+        }
+    }
+}
+
 type FnSig = (Vec<Type>, Type);
 
 #[derive(Clone)]
@@ -90,7 +113,7 @@ pub struct TypeEnv {
     pub fn_sig: Option<FnSig>,
     parent: Option<Rc<RefCell<TypeEnv>>>,
     bindings: HashMap<String, Type>,
-    record_types: HashMap<String, Record>,
+    udts: HashMap<String, Udt>,
 }
 
 impl TypeEnv {
@@ -100,7 +123,7 @@ impl TypeEnv {
             fn_sig: None,
             parent: None,
             bindings: HashMap::new(),
-            record_types: HashMap::new(),
+            udts: HashMap::new(),
         }
     }
 
@@ -110,7 +133,7 @@ impl TypeEnv {
             fn_sig: None,
             parent: Some(Rc::new(RefCell::new(self.clone()))),
             bindings: HashMap::new(),
-            record_types: HashMap::new(),
+            udts: HashMap::new(),
         }
     }
 
@@ -120,7 +143,7 @@ impl TypeEnv {
             fn_sig: Some((params, return_type)),
             parent: Some(Rc::new(RefCell::new(self.clone()))),
             bindings: HashMap::new(),
-            record_types: HashMap::new(),
+            udts: HashMap::new(),
         }
     }
 
@@ -131,8 +154,8 @@ impl TypeEnv {
             .or_else(|| self.parent.as_ref().and_then(|p| p.borrow().get(ident)))
     }
 
-    pub fn get_record(&self, ident: &str) -> Option<Record> {
-        self.record_types.get(ident).cloned()
+    pub fn get_udt(&self, ident: &str) -> Option<Udt> {
+        self.udts.get(ident).cloned()
     }
 
     /// inserts a type into the top level type environment
@@ -144,16 +167,16 @@ impl TypeEnv {
         }
     }
 
-    pub fn insert_record_top(&mut self, record: Record) -> Result<(), String> {
+    pub fn insert_udt_top(&mut self, udt: Udt) -> Result<(), String> {
         if self.parent.is_none() {
             // ensure that the record name is not already in the type env
-            if self.record_types.contains_key(&record.name) {
-                return Err(format!("Record {} already exists in the type environment", record.name));
+            if self.udts.contains_key(udt.name()) {
+                return Err(format!("UDT {} already exists in the type environment", udt.name()));
             }
-            self.record_types.insert(record.name.clone(), record);
+            self.udts.insert(udt.name().to_string(), udt);
             Ok(())
         } else {
-            self.parent.as_ref().unwrap().borrow_mut().insert_record_top(record)
+            self.parent.as_ref().unwrap().borrow_mut().insert_udt_top(udt)
         }
     }
 
