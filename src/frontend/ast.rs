@@ -152,6 +152,11 @@ pub enum Statement {
         generics: Vec<Type>,// TODO: add generics
         fields: Vec<(String, Type)>,
     },
+    AliasDecl {
+        name: String,
+        generics: Vec<Type>,
+        ty: Type,
+    },
 }
 
 impl Statement {
@@ -195,6 +200,10 @@ impl Statement {
 
     pub fn new_record_decl(name: String, generics: Vec<Type>, fields: Vec<(String, Type)>, line: usize) -> Located<Self> {
         Located::new(Self::RecordDecl { name, generics, fields }, line)
+    }
+
+    pub fn new_alias_decl(name: String, generics: Vec<Type>, ty: Type, line: usize) -> Located<Self> {
+        Located::new(Self::AliasDecl { name, generics, ty }, line)
     }
 }
 

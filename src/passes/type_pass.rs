@@ -1,4 +1,4 @@
-use crate::{Block, Expression, Program, Record, Statement, TokenKind, Type, TypeEnv};
+use crate::{Block, Expression, Program, Statement, TokenKind, Type, TypeEnv, Udt};
 
 // TODO: add handling for type var identifiers in expressions such as let x: TypeVar = 1; then x is a type var and let y = x + 1; will need resolution
 // TODO: add handling for function calls in which the the callee has type vars in its signature
@@ -13,7 +13,10 @@ fn add_udt_pass(program: &Program, type_env: &mut TypeEnv) -> Result<Program, St
     for stmt in program.statements.iter() {
         match &stmt.node {
             Statement::RecordDecl { name, fields, generics } => {
-                type_env.insert_record_top(Record { name: name.clone(), generics: generics.clone(), fields: fields.clone() })?;
+                type_env.insert_udt_top(Udt::Record { name: name.clone(), generics: generics.clone(), fields: fields.clone() })?;
+            }
+            Statement::AliasDecl { name, generics, ty } => {
+                type_env.insert_udt_top(Udt::Alias { name: name.clone(), generics: generics.clone(), ty: ty.clone() })?;
             }
             _ => new_program.add_statement(stmt.clone()),
         }
@@ -404,6 +407,22 @@ mod tests {
             },
         );
         env
+    }
+
+    #[test]
+    fn test_alias_declaration() {
+        let mut program = Program::new();
+        program.add_statement(Statement::new_alias_decl("Vec".to_string(), vec![], Type::Array { element_type: Box::new(Type::I64), size: 10 }, 1));
+        let new_env = type_check_program(&program).unwrap();
+        assert_eq!(new_env.get_udt("Vec"), Some(Udt::Alias { name: "Vec".to_string(), generics: vec![], ty: Type::Array { element_type: Box::new(Type::I64), size: 10 } }));
+    }
+
+    #[test]
+    fn test_record_declaration() {
+        let mut program = Program::new();
+        program.add_statement(Statement::new_record_decl("Point".to_string(), vec![], vec![("x".to_string(), Type::I64), ("y".to_string(), Type::I64)], 1));
+        let new_env = type_check_program(&program).unwrap();
+        assert_eq!(new_env.get_udt("Point"), Some(Udt::Record { name: "Point".to_string(), generics: vec![], fields: vec![("x".to_string(), Type::I64), ("y".to_string(), Type::I64)] }));
     }
 
     #[test]

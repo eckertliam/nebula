@@ -490,6 +490,7 @@ fn statement<'a>(parser: &mut Parser<'a>) -> Option<Located<Statement>> {
         TokenKind::LeftBrace => block_statement(parser),
         TokenKind::Return => return_statement(parser),
         TokenKind::Record => record_declaration(parser),
+        TokenKind::Type => alias_declaration(parser),
         _ => expression_statement(parser),
     }
 }
@@ -644,7 +645,24 @@ fn record_declaration<'a>(parser: &mut Parser<'a>) -> Option<Located<Statement>>
     let name = parser.previous.lexeme.to_string();
     let fields = parse_record_fields(parser)?;
     // TODO: add generic handling
-    Some(Statement::new_record_decl(name, vec![], fields, line))
+    let generics = vec![];
+    Some(Statement::new_record_decl(name, generics, fields, line))
+}
+
+fn alias_declaration<'a>(parser: &mut Parser<'a>) -> Option<Located<Statement>> {
+    // advance over the alias keyword
+    advance(parser);
+    // advance over the identifier
+    advance(parser);
+    let line = parser.previous.line;
+    let name = parser.previous.lexeme.to_string();
+    // TODO: handle generics
+    let generics = vec![];
+    // expect an equals sign
+    consume(parser, TokenKind::Eq, "Expected an equals sign after alias declaration.")?;
+    // parse the type
+    let ty = type_expr(parser)?;
+    Some(Statement::new_alias_decl(name, generics, ty, line))
 }
 
 // top level parsing =====
@@ -1001,6 +1019,23 @@ mod tests {
                 ("x".to_string(), Type::F32),
                 ("y".to_string(), Type::F32),
             ],
+        });
+    }
+
+    #[test]
+    fn test_alias_declaration() {
+        let scanner = Scanner::new("type Vec = [f32; 10]");
+        let mut parser = Parser::new(scanner);
+        let stmt = statement(&mut parser);
+        assert!(stmt.is_some());
+        let alias_decl = stmt.unwrap().node;
+        assert_eq!(alias_decl, Statement::AliasDecl { 
+            name: "Vec".to_string(),
+            generics: vec![],
+            ty: Type::Array {
+                element_type: Box::new(Type::F32),
+                size: 10,
+            },
         });
     }
 }
