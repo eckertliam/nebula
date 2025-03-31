@@ -7,8 +7,7 @@ pub(crate)enum TokenKind {
     // Keywords
     Const,
     Let,
-    Record,
-    Enum,
+    Class,
     Type,
     If,
     Else,
@@ -24,6 +23,9 @@ pub(crate)enum TokenKind {
     Or,
     Not,
     Fn,
+    This,
+    Super,
+    Extends,
     // Punctuation
     Colon,
     LBracket,
@@ -62,8 +64,7 @@ impl Display for TokenKind {
         match self {
             Const => write!(f, "const"),
             Let => write!(f, "let"),
-            Record => write!(f, "record"),
-            Enum => write!(f, "enum"),
+            Class => write!(f, "class"),
             Type => write!(f, "type"),
             If => write!(f, "if"),
             Else => write!(f, "else"),
@@ -79,6 +80,9 @@ impl Display for TokenKind {
             Or => write!(f, "or"),
             Not => write!(f, "not"),
             Fn => write!(f, "fn"),
+            This => write!(f, "this"),
+            Super => write!(f, "super"),
+            Extends => write!(f, "extends"),
             Colon => write!(f, ":"),
             LBracket => write!(f, "["),
             RBracket => write!(f, "]"),
@@ -324,8 +328,7 @@ impl<'src> Lexer<'src> {
         let kind = match lexeme {
             "const" => TokenKind::Const,
             "let" => TokenKind::Let,
-            "record" => TokenKind::Record,
-            "enum" => TokenKind::Enum,
+            "class" => TokenKind::Class,
             "if" => TokenKind::If,
             "else" => TokenKind::Else,
             "loop" => TokenKind::Loop,
@@ -341,6 +344,9 @@ impl<'src> Lexer<'src> {
             "fn" => TokenKind::Fn,
             "type" => TokenKind::Type,
             "match" => TokenKind::Match,
+            "this" => TokenKind::This,
+            "super" => TokenKind::Super,
+            "extends" => TokenKind::Extends,
             _ => TokenKind::Ident,
         };
         Ok(Token::located(kind, lexeme, self.column, self.line))

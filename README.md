@@ -37,32 +37,40 @@ let y: int = 30
 y = y + x
 ```
 
-### Records
-Records are similar to C or Rust structs. They are used to group related data together.
+### Classes
+Classes are used to define objects with their own state and behavior. They support single inheritance through the `extends` keyword.
 
 ```
-record Point 
+class Point
     x: int
     y: int
-end record
+
+    fn new(x: int, y: int) return Point
+        this.x = x
+        this.y = y
+        return this
+    end fn
+
+    fn add(other: Point) return Point
+        return Point(x: this.x + other.x, y: this.y + other.y)
+    end fn
+end class
 
 let p: Point = Point(x: 10, y: 20)
 ```
 
-### Enums
-Enums are similar to C or Rust enums. They are used to define a set of named constants. They are also used to create algebraic data types one of my favorite features of Rust and Haskell.
+Classes can also extend other classes:
 
 ```
-enum Color
-    Red
-    Green
-    Blue
-end enum
-```
+class ColoredPoint extends Point
+    color: string
 
-```
-enum Shape
-    Circle(radius: float)
-    Rectangle(width: float, height: float)
-end enum
+    fn new(x: int, y: int, color: string) return ColoredPoint
+        super.new(x, y)
+        this.color = color
+        return this
+    end fn
+end class
+
+let cp: ColoredPoint = ColoredPoint(x: 10, y: 20, color: "red")
 ```
