@@ -7,6 +7,18 @@ pub struct Program {
     pub declarations: Vec<Located<Declaration>>,
 }
 
+impl Program {
+    pub fn new() -> Self {
+        Self {
+            declarations: Vec::new(),
+        }
+    }
+
+    pub fn push_decl(&mut self, decl: Located<Declaration>) {
+        self.declarations.push(decl);
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum Declaration {
     Function(Located<FunctionDecl>),
@@ -113,9 +125,9 @@ pub struct ClassDecl {
 
 /*
  * Method Declaration
- * <method> ::= <name> (<param>*) return <return_type>
+ * <method> ::= fn <name> (<param>*) return <return_type>
  *   <body>
- * end method
+ * end
  */
 #[derive(Debug, Clone)]
 pub struct MethodDecl {
@@ -130,7 +142,7 @@ pub struct MethodDecl {
  * Constructor Declaration
  * <constructor> ::= <name> (<param>*)
  *   <body>
- * end constructor
+ * end
  */
 #[derive(Debug, Clone)]
 pub struct ConstructorDecl {
@@ -140,12 +152,11 @@ pub struct ConstructorDecl {
 
 /*
  * Modifier
- * <modifier> ::= public | private | static | abstract
+ * <modifier> ::= pub | static
  */
 #[derive(Debug, Clone)]
 pub enum Modifier {
-    Public,
-    Private,
+    Pub,
     Static,
 }
 
@@ -183,7 +194,6 @@ pub enum Expr {
     Call(Box<Call>),
     MethodCall(Box<MethodCall>),
     FieldAccess(Box<FieldAccess>),
-    New(Box<NewExpr>),
     This(Located<()>),
     Super(Located<()>),
 }
@@ -239,14 +249,4 @@ pub struct MethodCall {
 pub struct FieldAccess {
     pub receiver: Located<Expr>,
     pub field: Located<String>,
-}
-
-/*
- * New Expression
- * <new> ::= new <class> (<arg>*)
- */
-#[derive(Debug, Clone)]
-pub struct NewExpr {
-    pub class: Located<TypeExpr>,
-    pub args: Vec<Located<Expr>>,
 }

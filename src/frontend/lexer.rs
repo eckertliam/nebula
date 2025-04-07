@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use super::located::Located;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate)enum TokenKind {
     // Keywords
     Const,
@@ -113,7 +113,7 @@ impl Display for TokenKind {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Token<'src> {
     pub(crate) kind: TokenKind,
     pub(crate) lexeme: &'src str,
@@ -350,5 +350,29 @@ impl<'src> Lexer<'src> {
             _ => TokenKind::Ident,
         };
         Ok(Token::located(kind, lexeme, self.column, self.line))
+    }
+}
+
+pub(crate) fn lex(src: &str) -> Result<Vec<Located<Token>>, Vec<Located<String>>> {
+    let mut lexer = Lexer::new(src);
+    let mut tokens = Vec::new();
+    let mut errors = Vec::new();
+    loop {
+        match lexer.next_token() {
+            Ok(token) => {
+                if token.value.kind == TokenKind::Eof {
+                    tokens.push(token);
+                    break;
+                } else {
+                    tokens.push(token);
+                }
+            }
+            Err(error) => errors.push(error),
+        }
+    }
+    if errors.is_empty() {
+        Ok(tokens)
+    } else {
+        Err(errors)
     }
 }

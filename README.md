@@ -10,13 +10,13 @@ I've settled into a simple type system with records, enums, and type aliases. Th
 ```
 fn add(a: int, b: int) return int
     return a + b
-end fn
+end
 ```
 
 ```
-fn main
+fn main()
     println("Hello, World!")
-end fn
+end
 ```
 
 ### Variables
@@ -45,16 +45,16 @@ class Point
     x: int
     y: int
 
-    fn new(x: int, y: int) return Point
+    Point(x: int, y: int)
         this.x = x
         this.y = y
         return this
-    end fn
+    end
 
     fn add(other: Point) return Point
         return Point(x: this.x + other.x, y: this.y + other.y)
-    end fn
-end class
+    end
+end
 
 let p: Point = Point(x: 10, y: 20)
 ```
@@ -65,12 +65,11 @@ Classes can also extend other classes:
 class ColoredPoint extends Point
     color: string
 
-    fn new(x: int, y: int, color: string) return ColoredPoint
+    ColoredPoint(x: int, y: int, color: string)
         super.new(x, y)
         this.color = color
-        return this
-    end fn
-end class
+    end
+end
 
 let cp: ColoredPoint = ColoredPoint(x: 10, y: 20, color: "red")
 ```
