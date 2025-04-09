@@ -2,142 +2,106 @@ use crate::frontend::lexer::{lex, Token, TokenKind};
 use crate::frontend::located::Located;
 use crate::frontend::ast::*;
 
-struct Parser<'src> {
-    /// The parsed program
-    program: Program,
-    /// List of errors encountered during parsing
-    errors: Vec<String>,
-    /// Has the parser errored?
-    errored: bool,
-    /// Avoid a cascade of errors by entering failure mode
-    /// exit once the statement is parsed
-    failure_mode: bool,
-    /// The tokens to parse
-    tokens: Vec<Located<Token<'src>>>,
-    /// The index of the current token
-    current: usize,
-    /// The index of the previous token
-    previous: usize,
-}
-
-impl<'src> Parser<'src> {
-    pub fn new(tokens: Vec<Located<Token<'src>>>) -> Self {
-        Self {
-            program: Program::new(),
-            errors: Vec::new(),
-            errored: false,
-            failure_mode: false,
-            tokens,
-            current: 0,
-            previous: 0,
-        }
-    }
-
-    fn get_current(&self) -> Located<Token<'src>> {
-        self.tokens[self.current]
-    }
-
-    fn get_previous(&self) -> Located<Token<'src>> {
-        self.tokens[self.previous]
-    }
-
-    fn advance(&mut self) {
-        self.previous = self.current;
-        self.current += 1;
-    }
-
-    /*
-     * Error at a specific token index
-     */
-    fn error_at(&mut self, token_idx: usize, message: &str) {
-        // if in failure mode dont add more errors
-        if self.failure_mode {
-            return;
-        }
-
-        let token = &self.tokens[token_idx];
-        let emsg = format!("[{}:{}] Error: {} at {}", token.column, token.line, message, token.value);
-        self.errors.push(emsg);
-        self.errored = true;
-        self.failure_mode = true;
-    }
-
-    /*
-     * Error at the previous token
-     */
-    fn error_at_previous(&mut self, message: &str) {
-        self.error_at(self.previous, message);
-    }
-
-    /*
-     * Error at the current token
-     */
-    fn error_at_current(&mut self, message: &str) {
-        self.error_at(self.current, message);
-    }
-
-    /*
-     * Consume a token
-     * Returns true if the token was of the expected kind
-     * Returns false and adds an error if the token was not of the expected kind
-     */
-    fn consume(&mut self, kind: TokenKind, msg: &str) -> bool {
-        if self.get_current().value.kind == kind {
-            self.advance();
-            true
-        } else {
-            self.error_at_current(msg);
-            false
-        }
-    }
-
-    /* 
-     * Parse a literal 
-     * Returns Some literal if there is a valid literal
-     * Otherwise returns None and enters an error state
-     */
-    fn literal(&mut self) -> Option<Literal> {
-        let token = self.get_current();
-        match token.value.kind {
-            TokenKind::Number => {
-                self.advance();
-                // determine if the number is an int or a float
-                if let Ok(integer) = token.value.lexeme.parse::<i64>() {
-                    Some(Literal::Int(integer))
-                } else if let Ok(float) = token.value.lexeme.parse::<f64>() {
-                    Some(Literal::Float(float))
-                } else {
-                    self.error_at_current("Invalid number");
-                    None
-                }
-            }
-            TokenKind::True => {
-                self.advance();
-                Some(Literal::Bool(true))
-            }
-            TokenKind::False => {
-                self.advance();
-                Some(Literal::Bool(false))
-            }
-            TokenKind::Char => {
-                self.advance();
-                let ch = token.value.lexeme.chars().next();
-                if let Some(ch) = ch {
-                    Some(Literal::Char(ch))
-                } else {
-                    self.error_at_current("Invalid character");
-                    None
-                }
-            }
-            TokenKind::String => {
-                self.advance();
-                let str = token.value.lexeme;
-                Some(Literal::String(str.to_string()))
-            }
-            _ => {
-                self.error_at_current("Expected literal");
-                None
-            }
+macro_rules! expected_token {
+    ($expected_kind:expr, $got_token:expr) => {
+        {
+            let line = $got_token.line;
+            let column = $got_token.column;
+            let token = $got_token.value;
+            let msg = format!("[{}:{}] Error: Expected {} but got {}", line, column, $expected_kind, token);
+            Err(msg)
         }
     }
 }
+
+type TokenStream<'src> = &'src [Located<Token<'src>>];
+
+type ParseResult<'src, T> = Result<(TokenStream<'src>, T), String>;
+
+fn or<'src, T>(a: ParseResult<'src, T>, b: ParseResult<'src, T>) -> ParseResult<'src, T> {
+    match a {
+        Ok(result) => Ok(result),
+        Err(_) => b,
+    }
+}
+
+fn parse_number(tokens: TokenStream) -> ParseResult<Located<Expr>> {
+    let loc_tok = tokens.first().ok_or("Unexpected EOF while parsing number")?;
+    let token = loc_tok.value;
+
+    match token.kind {
+        TokenKind::Number => or(parse_int(tokens), parse_float(tokens)),
+        _ => expected_token!("number", loc_tok),
+    }
+}
+
+fn parse_int(tokens: TokenStream) -> ParseResult<Located<Expr>> {
+    let loc_tok = &tokens[0];
+    let token = loc_tok.value;
+
+    if let Ok(n) = token.lexeme.parse::<i64>() {
+        Ok((&tokens[1..], Located::new(loc_tok.column, loc_tok.line, Expr::Int(n))))
+    } else {
+        expected_token!("integer", loc_tok)
+    }
+}
+
+fn parse_float(tokens: TokenStream) -> ParseResult<Located<Expr>> {
+    let loc_tok = &tokens[0];
+    let token = loc_tok.value;
+
+    if let Ok(n) = token.lexeme.parse::<f64>() {
+        Ok((&tokens[1..], Located::new(loc_tok.column, loc_tok.line, Expr::Float(n))))
+    } else {
+        expected_token!("float", loc_tok)
+    }
+}
+
+fn parse_bool(tokens: TokenStream) -> ParseResult<Located<Expr>> {
+    let loc_tok = &tokens[0];
+
+    match loc_tok.value.kind {
+        TokenKind::True => Ok((&tokens[1..], Located::new(loc_tok.column, loc_tok.line, Expr::Bool(true)))),
+        TokenKind::False => Ok((&tokens[1..], Located::new(loc_tok.column, loc_tok.line, Expr::Bool(false)))),
+        _ => expected_token!("boolean", loc_tok),
+    }
+}
+
+fn parse_char(tokens: TokenStream) -> ParseResult<Located<Expr>> {
+    let loc_tok = tokens.first().ok_or("Unexpected EOF while parsing char")?;
+    let token = loc_tok.value;
+
+    match token.kind {
+        TokenKind::Char => {
+            if let Some(c) = token.lexeme.chars().next() {
+                Ok((&tokens[1..], Located::new(loc_tok.column, loc_tok.line, Expr::Char(c))))
+            } else {
+                expected_token!("character", loc_tok)
+            }
+        }
+        _ => expected_token!("character", loc_tok),
+    }
+}
+
+fn parse_string(tokens: TokenStream) -> ParseResult<Located<Expr>> {
+    let loc_tok = tokens.first().ok_or("Unexpected EOF while parsing string")?;
+    let token = loc_tok.value;
+
+    match token.kind {
+        TokenKind::String => Ok((&tokens[1..], Located::new(loc_tok.column, loc_tok.line, Expr::String(token.lexeme.to_string())))),
+        _ => expected_token!("string", loc_tok),
+    }
+}
+
+
+fn parse_variable(tokens: TokenStream) -> ParseResult<Located<Expr>> {
+    let loc_tok = tokens.first().ok_or("Unexpected EOF while parsing variable")?;
+    let token = loc_tok.value;
+
+    match token.kind {
+        TokenKind::Ident => Ok((&tokens[1..], Located::new(loc_tok.column, loc_tok.line, Expr::Var(token.lexeme.to_string())))),
+        _ => expected_token!("variable", loc_tok),
+    }
+}
+
+

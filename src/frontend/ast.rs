@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use super::located::Located;
+use super::{lexer::TokenKind, located::Located};
 
 #[derive(Debug, Clone)]
 pub struct Program {
@@ -185,39 +185,23 @@ pub enum Statement {
 
 /*
  * Expression
- * <expression> ::= <literal> | <variable> | <call> | <method_call> | <field_access> | <new> | <this> | <super>
+ * <expression> ::= <int> | <float> | <bool> | <char> | <string> | <variable> | <call> | <method_call> | <field_access> | <new> | <this> | <super>
  */
 #[derive(Debug, Clone)]
 pub enum Expr {
-    Literal(Literal),
-    Var(Var),
-    Call(Box<Call>),
-    MethodCall(Box<MethodCall>),
-    FieldAccess(Box<FieldAccess>),
-    This(Located<()>),
-    Super(Located<()>),
-}
-
-/*
- * Literal
- * <literal> ::= <int> | <float> | <bool> | <char> | <string>
- */
-#[derive(Debug, Clone)]
-pub enum Literal {
     Int(i64),
     Float(f64),
     Bool(bool),
     Char(char),
     String(String),
-}
-
-/*
- * Variable
- * <variable> ::= <name>
- */
-#[derive(Debug, Clone)]
-pub struct Var {
-    pub name: String,
+    Var(String),
+    Call(Box<Call>),
+    MethodCall(Box<MethodCall>),
+    FieldAccess(Box<FieldAccess>),
+    This,
+    Super,
+    BinExpr(Box<BinExpr>),
+    UnaryExpr(Box<UnaryExpr>),
 }
 
 /*
@@ -249,4 +233,17 @@ pub struct MethodCall {
 pub struct FieldAccess {
     pub receiver: Located<Expr>,
     pub field: Located<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct BinExpr {
+    pub left: Located<Expr>,
+    pub right: Located<Expr>,
+    pub op: Located<TokenKind>,
+}
+
+#[derive(Debug, Clone)]
+pub struct UnaryExpr {
+    pub op: Located<TokenKind>,
+    pub expr: Located<Expr>,
 }
