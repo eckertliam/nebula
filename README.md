@@ -48,11 +48,14 @@ class Point
     Point(x: int, y: int)
         this.x = x
         this.y = y
-        return this
     end
 
     fn add(other: Point) return Point
         return Point(x: this.x + other.x, y: this.y + other.y)
+    end
+
+    pub fn get_coords() return (int, int)
+        return (this.x, this.y)
     end
 end
 

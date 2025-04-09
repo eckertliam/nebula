@@ -30,8 +30,9 @@ pub enum Declaration {
 
 /*
  * Function Declaration
- * fn <name> (<param>*) return <return_type>
- *   <body>
+ * Example:
+ * fn add(a: int, b: int) return int
+ *   return a + b
  * end fn
  */
 #[derive(Debug, Clone)]
@@ -44,7 +45,6 @@ pub struct FunctionDecl {
 
 /*
  * Parameter
- * <param> ::= <name> : <type>
  */
 #[derive(Debug, Clone)]
 pub struct Param {
@@ -54,7 +54,10 @@ pub struct Param {
 
 /*
  * Type Expression
- * <type> ::= <name> | [<type>] | (<type>, ...)
+ * Example:
+ * int
+ * [int]
+ * (int, int)
  */
 #[derive(Debug, Clone)]
 pub enum TypeExpr {
@@ -64,9 +67,12 @@ pub enum TypeExpr {
 }
     
 /*
- * Block
+ * Block of Begin End or body of statements
+ * Example:
  * begin
- *   <statements>
+ *   const a: int = 1
+ *   const b: int = 2
+ *   a + b
  * end
  */
 #[derive(Debug, Clone)]
@@ -76,7 +82,9 @@ pub struct Block {
 
 /*
  * Constant Declaration
- * const <name> (: <type>)? = <expr>
+ * Example:
+ * const a: int = 1
+ * const name = "John"
  */
 #[derive(Debug, Clone)]
 pub struct ConstDecl {
@@ -87,7 +95,9 @@ pub struct ConstDecl {
 
 /*
  * Let Declaration
- * let <name> (: <type>)? = <expr>
+ * Example:
+ * let a: int = 1
+ * let name = "John"
  */
 #[derive(Debug, Clone)]
 pub struct LetDecl {
@@ -98,7 +108,8 @@ pub struct LetDecl {
 
 /*
  * Type Declaration
- * type <name> = <type>
+ * Example:
+ * type Token = (string, int, int)
  */
 #[derive(Debug, Clone)]
 pub struct TypeDecl {
@@ -108,11 +119,23 @@ pub struct TypeDecl {
 
 /*
  * Class Declaration
- * class <name> (extends <superclass>)?
- *   <fields>
- *   <methods>
- *   <constructors>
- * end class
+ * Example:
+ * class Point
+ *   x: int
+ *   y: int
+ *   color: string
+ * 
+ *   Point(x: int, y: int)
+ *     this.x = x
+ *     this.y = y
+ *     this.color = "red"
+ *     return this
+ *   end
+ * 
+ *   fn add(other: Point) return Point
+ *     return Point(x: this.x + other.x, y: this.y + other.y)
+ *   end
+ * end
  */
 #[derive(Debug, Clone)]
 pub struct ClassDecl {
@@ -125,17 +148,22 @@ pub struct ClassDecl {
 
 /*
  * Method Declaration
- * <method> ::= fn <name> (<param>*) return <return_type>
- *   <body>
+ * Example:
+ * fn add(other: Point) return Point
+ *   return Point(x: this.x + other.x, y: this.y + other.y)
+ * end
+ * 
+ * pub fn get_color() return string
+ *   return this.color
  * end
  */
 #[derive(Debug, Clone)]
 pub struct MethodDecl {
+    pub public: bool,
     pub name: Located<String>,
     pub params: Vec<Located<Param>>,
     pub return_type: Located<TypeExpr>,
     pub body: Located<Block>,
-    pub modifiers: Vec<Located<Modifier>>,
 }
 
 /*
@@ -151,28 +179,25 @@ pub struct ConstructorDecl {
 }
 
 /*
- * Modifier
- * <modifier> ::= pub | static
- */
-#[derive(Debug, Clone)]
-pub enum Modifier {
-    Pub,
-    Static,
-}
-
-/*
  * Field
- * <field> ::= <name> : <type>
+ * Example:
+ * x: int
+ * color: string
+ * pub x: int
  */
 #[derive(Debug, Clone)]
 pub struct Field {
+    pub public: bool,
     pub name: Located<String>,
     pub ty: Located<TypeExpr>,
 }
 
 /*
  * Statement
- * <statement> ::= <let> | <const> | <return> | <expression> | <block>
+ * Example:
+ * let a: int = 1
+ * const b: int = 2
+ * return a + b
  */
 #[derive(Debug, Clone)]
 pub enum Statement {
@@ -185,7 +210,6 @@ pub enum Statement {
 
 /*
  * Expression
- * <expression> ::= <int> | <float> | <bool> | <char> | <string> | <variable> | <call> | <method_call> | <field_access> | <new> | <this> | <super>
  */
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -206,7 +230,9 @@ pub enum Expr {
 
 /*
  * Call
- * <call> ::= <callee> (<arg>*)
+ * Example:
+ * add(1, 2)
+ * call()
  */
 #[derive(Debug, Clone)]
 pub struct Call {
@@ -216,7 +242,8 @@ pub struct Call {
 
 /*
  * Method Call
- * <method_call> ::= <receiver>.<method>(<arg>*)
+ * Example:
+ * a.x()
  */
 #[derive(Debug, Clone)]
 pub struct MethodCall {
@@ -227,7 +254,9 @@ pub struct MethodCall {
 
 /*
  * Field Access
- * <field_access> ::= <receiver>.<field>
+ * Example:
+ * a.x
+ * a.color
  */
 #[derive(Debug, Clone)]
 pub struct FieldAccess {
@@ -235,6 +264,14 @@ pub struct FieldAccess {
     pub field: Located<String>,
 }
 
+/*
+ * Binary Expression
+ * Example:
+ * a + b
+ * a - b
+ * a * b
+ * a / b
+ */
 #[derive(Debug, Clone)]
 pub struct BinExpr {
     pub left: Located<Expr>,
@@ -242,6 +279,12 @@ pub struct BinExpr {
     pub op: Located<TokenKind>,
 }
 
+/*
+ * Unary Expression
+ * Example:
+ * !a
+ * -a
+ */
 #[derive(Debug, Clone)]
 pub struct UnaryExpr {
     pub op: Located<TokenKind>,

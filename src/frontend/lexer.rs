@@ -18,6 +18,7 @@ pub(crate)enum TokenKind {
     Return,
     True,
     False,
+    Begin,
     End,
     And,
     Or,
@@ -26,6 +27,7 @@ pub(crate)enum TokenKind {
     This,
     Super,
     Extends,
+    Pub,
     // Punctuation
     Colon,
     LBracket,
@@ -75,6 +77,7 @@ impl Display for TokenKind {
             Return => write!(f, "return"),
             True => write!(f, "true"),
             False => write!(f, "false"),
+            Begin => write!(f, "begin"),
             End => write!(f, "end"),
             And => write!(f, "and"),
             Or => write!(f, "or"),
@@ -83,6 +86,7 @@ impl Display for TokenKind {
             This => write!(f, "this"),
             Super => write!(f, "super"),
             Extends => write!(f, "extends"),
+            Pub => write!(f, "pub"),
             Colon => write!(f, ":"),
             LBracket => write!(f, "["),
             RBracket => write!(f, "]"),
@@ -337,6 +341,7 @@ impl<'src> Lexer<'src> {
             "return" => TokenKind::Return,
             "true" => TokenKind::True,
             "false" => TokenKind::False,
+            "begin" => TokenKind::Begin,
             "end" => TokenKind::End,
             "and" => TokenKind::And,
             "or" => TokenKind::Or,
@@ -347,6 +352,7 @@ impl<'src> Lexer<'src> {
             "this" => TokenKind::This,
             "super" => TokenKind::Super,
             "extends" => TokenKind::Extends,
+            "pub" => TokenKind::Pub,
             _ => TokenKind::Ident,
         };
         Ok(Token::located(kind, lexeme, self.column, self.line))
