@@ -74,6 +74,48 @@ pub enum TypeExpr {
     Array(Box<TypeExpr>),
     Tuple(Vec<TypeExpr>),
 }
+
+impl<'src> Parse<'src, TypeExpr> for TypeExpr {
+    fn parse(mut parser: Parser<'src>) -> Option<Located<TypeExpr>> {
+        match parser.previous.value.kind {
+            TokenKind::Ident => {
+                let ident = parser.previous.value.lexeme.to_string();
+                Some(Located::new(parser.previous.column, parser.previous.line, TypeExpr::Named(ident)))
+            }
+            TokenKind::LBracket => {
+                parser.advance();
+                let array_type = TypeExpr::parse(parser)?;
+                // expect a closing bracket
+                if parser.consume(TokenKind::RBracket, "Expected ']' after array type") {
+                    Some(Located::new(parser.previous.column, parser.previous.line, TypeExpr::Array(Box::new(array_type.value))))
+                } else {
+                    None
+                }
+            }
+            TokenKind::LParen => {
+                let mut types = Vec::new();
+                // parse comma separated types
+                while parser.current.value.kind != TokenKind::RParen {
+                    parser.advance();
+                    let ty = TypeExpr::parse(parser)?;
+                    types.push(ty.value);
+                    if parser.current.value.kind == TokenKind::Comma {
+                        parser.advance();
+                    } else {
+                        break;
+                    }
+                }
+                // expect a closing parenthesis
+                if parser.consume(TokenKind::RParen, "Expected ')' after tuple type") {
+                    Some(Located::new(parser.previous.column, parser.previous.line, TypeExpr::Tuple(types)))
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+}
     
 /*
  * Block of Begin End or body of statements
@@ -270,6 +312,12 @@ impl<'src> Expr {
         }
 
         Some(expr)
+    }
+}
+
+impl<'src> Parse<'src, Expr> for Expr {
+    fn parse(parser: Parser<'src>) -> Option<Located<Expr>> {
+        Expr::parse_precedence(parser, Precedence::Assignment)
     }
 }
 
