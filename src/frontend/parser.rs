@@ -40,6 +40,14 @@ impl<'src> Parser<'src> {
         }
     }
 
+    pub fn match_token(&mut self, kind: TokenKind) -> bool {
+        if self.current.value.kind == kind {
+            self.advance();
+            true
+        } else {
+            false
+        }
+    }
     pub fn error_at(&mut self, token: Located<Token<'src>>, msg: &str) {
         // short circuit if we're already in panic mode
         if self.panic_mode {

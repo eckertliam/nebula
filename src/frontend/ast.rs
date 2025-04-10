@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 use super::{located::Located, parse_rule::ParseRule, parser::{Parser, Precedence}, token::TokenKind};
 
 pub trait Parse<'src, T: Sized> {
@@ -30,11 +28,11 @@ impl Program {
 
 #[derive(Debug, Clone)]
 pub enum Declaration {
-    Function(Located<FunctionDecl>),
-    Constant(Located<ConstDecl>),
-    Let(Located<LetDecl>),
-    TypeAlias(Located<TypeDecl>),
-    Class(Located<ClassDecl>),
+    Function(FunctionDecl),
+    Constant(ConstDecl),
+    Let(LetDecl),
+    TypeAlias(TypeDecl),
+    Class(ClassDecl),
 }
 
 /*
@@ -166,6 +164,40 @@ pub struct LetDecl {
 pub struct TypeDecl {
     pub name: Located<String>,
     pub ty: Located<TypeExpr>,
+}
+
+impl<'src> Parse<'src, Declaration> for TypeDecl {
+    fn parse(mut parser: Parser<'src>) -> Option<Located<Declaration>> {
+        // we know that previous token is 'type'
+        // save the line and column of the 'type' token
+        let (column, line) = (parser.previous.column, parser.previous.line);
+        // expect an identifier
+        if !parser.consume(TokenKind::Ident, "Expected type name") {
+            return None;
+        }
+        let name = Located::new(
+            parser.previous.column,
+            parser.previous.line,
+            parser.previous.value.lexeme.to_string(),
+        );
+        // expect an equals sign
+        if !parser.consume(TokenKind::Eq, "Expected '=' after type name") {
+            return None;
+        }
+        // parse the type expression
+        let ty = TypeExpr::parse(parser)?;
+        // expect a newline or end of file
+        if !parser.match_token(TokenKind::Newline) && !parser.match_token(TokenKind::Eof) {
+            parser.error_at(parser.previous, "Expected newline or end of file after type alias");
+            return None;
+        }
+        
+        Some(Located::new(
+            column,
+            line,
+            Declaration::TypeAlias(TypeDecl { name, ty }),
+        ))
+    }
 }
 
 /*
