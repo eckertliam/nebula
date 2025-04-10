@@ -3,6 +3,7 @@ use std::fmt::Display;
 use super::located::Located;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
 pub(crate)enum TokenKind {
     // Keywords
     Const,
@@ -58,6 +59,8 @@ pub(crate)enum TokenKind {
     // Special
     Newline,
     Eof,
+    #[doc(hidden)]
+    COUNT, // number of tokens
 }
 
 impl Display for TokenKind {
@@ -113,6 +116,7 @@ impl Display for TokenKind {
             Char => write!(f, "<char>"),
             Newline => write!(f, "<newline>"),
             Eof => write!(f, "<eof>"),
+            COUNT => unreachable!(),
         }
     }
 }

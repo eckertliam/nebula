@@ -1,6 +1,15 @@
 use std::fmt::Display;
 
-use super::{lexer::TokenKind, located::Located};
+use super::{located::Located, parse_rule::ParseRule, parser::{Parser, Precedence}, token::TokenKind};
+
+pub trait Parse<'src, T: Sized> {
+    fn parse(parser: Parser<'src>) -> Option<Located<T>>;
+
+    #[allow(unused_variables)]
+    fn infix(parser: Parser<'src>, expr: Located<T>) -> Option<Located<T>> {
+        None
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Program {
@@ -213,12 +222,12 @@ pub enum Statement {
  */
 #[derive(Debug, Clone)]
 pub enum Expr {
-    Int(i64),
-    Float(f64),
-    Bool(bool),
-    Char(char),
-    String(String),
-    Var(String),
+    Int(Int),
+    Float(Float),
+    Bool(Bool),
+    Char(Char),
+    Str(Str),
+    Ident(Ident),
     Call(Box<Call>),
     MethodCall(Box<MethodCall>),
     FieldAccess(Box<FieldAccess>),
@@ -228,6 +237,131 @@ pub enum Expr {
     UnaryExpr(Box<UnaryExpr>),
 }
 
+impl<'src> Expr {
+    pub fn parse_precedence(mut parser: Parser<'src>, precedence: Precedence) -> Option<Located<Expr>> {
+        parser.advance();
+
+        let rule: ParseRule<'src> = parser.previous_rule();
+        
+        let mut expr = if let Some(prefix) = rule.prefix {
+            prefix(parser)?
+        } else {
+            parser.error_at(parser.previous, "Expected expression");
+            return None;
+        };
+
+        loop {
+            let current_rule = parser.current_rule();
+            if precedence > current_rule.precedence {
+                break;
+            }
+
+            parser.advance();
+            
+            match current_rule.infix {
+                Some(infix) => {
+                    expr = infix(parser, expr)?;
+                }
+                None => {
+                    parser.error_at(parser.current, "Expected infix operator");
+                    return None;
+                }
+            }
+        }
+
+        Some(expr)
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Int {
+    pub value: i64,
+}
+
+impl<'src> Parse<'src, Expr> for Int {
+    fn parse(parser: Parser<'src>) -> Option<Located<Expr>> {
+        let lexeme = parser.previous.value.lexeme;
+        if let Ok(value) = lexeme.parse::<i64>() {
+            Some(Located::new(parser.previous.column, parser.previous.line, Expr::Int(Int { value })))
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Float {
+    pub value: f64,
+}
+
+impl<'src> Parse<'src, Expr> for Float {
+    fn parse(parser: Parser<'src>) -> Option<Located<Expr>> {
+        let lexeme = parser.previous.value.lexeme;
+        if let Ok(value) = lexeme.parse::<f64>() {
+            Some(Located::new(parser.previous.column, parser.previous.line, Expr::Float(Float { value })))
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Bool {
+    pub value: bool,
+}
+
+impl<'src> Parse<'src, Expr> for Bool {
+    fn parse(parser: Parser<'src>) -> Option<Located<Expr>> {
+        let kind = parser.previous.value.kind;
+        match kind {
+            TokenKind::True => Some(Located::new(parser.previous.column, parser.previous.line, Expr::Bool(Bool { value: true }))),
+            TokenKind::False => Some(Located::new(parser.previous.column, parser.previous.line, Expr::Bool(Bool { value: false }))),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Char {
+    pub value: char,
+}
+
+impl<'src> Parse<'src, Expr> for Char {
+    fn parse(mut parser: Parser<'src>) -> Option<Located<Expr>> {
+        let lexeme = parser.previous.value.lexeme;
+        if lexeme.len() == 1 {
+            Some(Located::new(parser.previous.column, parser.previous.line, Expr::Char(Char { value: lexeme.chars().next().unwrap() })))
+        } else {
+            parser.error_at(parser.previous, "Expected character");
+            None
+        }
+    }
+}
+#[derive(Debug, Clone)]
+pub struct Str {
+    pub value: String,
+}
+
+impl<'src> Parse<'src, Expr> for Str {
+    fn parse(parser: Parser<'src>) -> Option<Located<Expr>> {
+        let lexeme = parser.previous.value.lexeme;
+        let column = parser.previous.column;
+        let line = parser.previous.line;
+        Some(Located::new(column, line, Expr::Str(Str { value: lexeme.to_string() })))
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Ident {
+    pub value: String,
+}
+
+impl<'src> Parse<'src, Expr> for Ident {
+    fn parse(parser: Parser<'src>) -> Option<Located<Expr>> {
+        let lexeme = parser.previous.value.lexeme;
+        Some(Located::new(parser.previous.column, parser.previous.line, Expr::Ident(Ident { value: lexeme.to_string() })))
+    }
+}
 /*
  * Call
  * Example:
@@ -279,6 +413,29 @@ pub struct BinExpr {
     pub op: Located<TokenKind>,
 }
 
+impl<'src> Parse<'src, Expr> for BinExpr {
+    #[allow(unused_variables)]
+    fn parse(parser: Parser<'src>) -> Option<Located<Expr>> {
+        None
+    }
+
+    fn infix(parser: Parser<'src>, expr: Located<Expr>) -> Option<Located<Expr>> {
+        // get operator type 
+        let op = Located::new(parser.previous.column, parser.previous.line, parser.previous.value.kind);
+        let precedence = op.value.get_parse_rule().precedence;
+
+        let right = Expr::parse_precedence(parser, precedence.increment())?;
+
+        let bin_expr = BinExpr {
+            left: expr,
+            right,
+            op,
+        };
+
+        Some(Located::new(parser.previous.column, parser.previous.line, Expr::BinExpr(Box::new(bin_expr))))
+    }
+}
+
 /*
  * Unary Expression
  * Example:
@@ -289,4 +446,22 @@ pub struct BinExpr {
 pub struct UnaryExpr {
     pub op: Located<TokenKind>,
     pub expr: Located<Expr>,
+}
+
+impl<'src> Parse<'src, Expr> for UnaryExpr {
+    fn parse(parser: Parser<'src>) -> Option<Located<Expr>> {
+        // we already know that the previous token is a unary operator
+        let op = Located::new(parser.previous.column, parser.previous.line, parser.previous.value.kind);
+        let operand = Expr::parse_precedence(parser, Precedence::Unary)?;
+        let unary_expr = UnaryExpr {
+            op,
+            expr: operand,
+        };
+
+        Some(Located::new(
+            parser.previous.column,
+            parser.previous.line,
+            Expr::UnaryExpr(Box::new(unary_expr)),
+        ))
+    }
 }
